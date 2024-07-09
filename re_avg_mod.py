@@ -17,8 +17,8 @@ data['Date'] = pd.to_datetime(data['Date'])
 data = data.sort_values(by=['ticker', 'Date'])
 
 # Restructure the DataFrame
-columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5', 'Date', 'ticker']
-field_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5', 'Date', 'Stock']
+columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5']
+field_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5']
 rows = []
 
 for _, row in data.iterrows():
@@ -31,7 +31,7 @@ for _, row in data.iterrows():
             rows.append({'Field Name': field, 'Field Value': field_value, 'Closeness': '', 'Date': row['Date'].strftime('%Y-%m-%d'), 'Stock': row['ticker']})
 
 # Create a new DataFrame from the rows
-restructured_data = pd.DataFrame(rows)
+restructured_data = pd.DataFrame(rows, columns=['Field Name', 'Field Value', 'Closeness', 'Date', 'Stock'])
 
 # Connect to the new SQLite database
 conn_new = sqlite3.connect(new_db_path)

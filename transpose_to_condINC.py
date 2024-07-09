@@ -1,29 +1,53 @@
+import sqlite3
 import pandas as pd
 
-# Create a list of data from the table
-data = [
-    ['Open', None, None, None, None],
-    ['High', None, None, None, None],
-    ['Low', None, None, None, None],
-    ['Close', None, None, None, None],
-    ['Volume', None, None, None, None],
-    ['Ind1', None, None, None, None],
-    ['Ind2', None, None, None, None],
-    ['Ind3', None, None, None, None],
-    ['Cond1', None, None, None, None],  # Adjust row index if Cond1 is at a different position
-    ['Cond2', None, None, None, None],  # Adjust row index if Cond2 is at a different position
-    ['Cond3', None, None, None, None],  # Adjust row index if Cond3 is at a different position
-]
+# Paths to the input and output SQLite database files
+input_db_path = 'output_restructured.sqlite'
+output_db_path = 'conditions_incremental.sqlite'
 
-# Create a DataFrame from the data list
-df = pd.DataFrame(data, columns=['Field Nam', 'Stock', 'Date', 'Closeness', 'Field Valu'])
+# Connect to the input SQLite database
+conn_input = sqlite3.connect(input_db_path)
 
-# Select rows with condition names
-condition_rows = df[df['Field Nam'].isin(['Cond1', 'Cond2', 'Cond3'])]
+# Load the data from the restructured table
+data_query = "SELECT * FROM NSE_with_indicators_restructured;"
+data = pd.read_sql_query(data_query, conn_input)
 
-# Extract condition names and drop unnecessary columns
-condition_rows['Condition'] = condition_rows['Field Nam']
-condition_rows = condition_rows[['Condition', 'Stock', 'Date']]
+# Define a function to check the conditions (example conditions)
+def check_conditions(row):
+    conditions = []
+    if row['Field Name'] == 'C_5_MORE_THAN_10' and row['Field Value'] == 1:
+        conditions.append('C_5_MORE_THAN_10')
+    if row['Field Name'] == 'C_10_MORE_THAN_5' and row['Field Value'] == 1:
+        conditions.append('C_10_MORE_THAN_5')
+    return conditions
 
-# Print the resulting table
-print(condition_rows.to_string())
+# Initialize a list to hold the rows for the new table
+condition_rows = []
+
+# Iterate through the data and check conditions
+for _, row in data.iterrows():
+    met_conditions = check_conditions(row)
+    for condition in met_conditions:
+        condition_rows.append({
+            'Condition ID': condition,
+            'Stock ID': row['Stock'],
+            'Date when condition met': row['Date']
+        })
+
+# Create a new DataFrame for the conditions
+conditions_df = pd.DataFrame(condition_rows)
+
+# Connect to the new SQLite database
+conn_output = sqlite3.connect(output_db_path)
+
+# Store the conditions DataFrame in the new SQLite database
+conditions_df.to_sql('Conditions_Incremental', conn_output, if_exists='replace', index=False)
+
+# Optional: Verify the stored data
+result_query = "SELECT * FROM Conditions_Incremental LIMIT 50;"
+result = pd.read_sql_query(result_query, conn_output)
+print(result.head(50))
+
+# Close the connections
+conn_input.close()
+conn_output.close()

@@ -17,8 +17,8 @@ data['Date'] = pd.to_datetime(data['Date'])
 data = data.sort_values(by=['ticker', 'Date'])
 
 # Restructure the DataFrame
-columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'ind1', 'ind2', 'ind3', 'entry_signal', 'exit_signal', 'Date', 'ticker']
-field_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'Ind1', 'Ind2', 'Ind3', 'Cond1', 'Cond2', 'Date', 'Stock']
+columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5', 'Date', 'ticker']
+field_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'I_MA5', 'I_MA10', 'I_MA20', 'C_5_MORE_THAN_10', 'C_10_MORE_THAN_5', 'Date', 'Stock']
 rows = []
 
 for _, row in data.iterrows():

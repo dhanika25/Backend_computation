@@ -20,22 +20,22 @@ data = data.sort_values(by='Date')
 ma_periods = [5, 10, 20]
 
 # Calculate moving averages and add them as new columns
-for i, period in enumerate(ma_periods, start=1):
-    data[f'ind{i}'] = data['Adj_Close'].rolling(window=period).mean()
+for period in ma_periods:
+    data[f'I_MA{period}'] = data['Adj_Close'].rolling(window=period).mean()
 
 # Initialize columns for entry and exit signals
-data['entry_signal'] = False
-data['exit_signal'] = False
+data['C_5_MORE_THAN_10'] = False
+data['C_10_MORE_THAN_5'] = False
 
 # Define the entry condition
-entry_condition = (data['ind1'] > data['ind2']) & (data['ind1'].shift(1) <= data['ind2'].shift(1))
+entry_condition = (data['I_MA5'] > data['I_MA10']) & (data['I_MA5'].shift(1) <= data['I_MA10'].shift(1))
 
 # Define the exit condition
-exit_condition = (data['ind1'] < data['ind2']) & (data['ind1'].shift(1) >= data['ind2'].shift(1))
+exit_condition = (data['I_MA5'] < data['I_MA10']) & (data['I_MA5'].shift(1) >= data['I_MA10'].shift(1))
 
 # Apply the conditions to the DataFrame
-data.loc[entry_condition, 'entry_signal'] = True
-data.loc[exit_condition, 'exit_signal'] = True
+data.loc[entry_condition, 'C_5_MORE_THAN_10'] = True
+data.loc[exit_condition, 'C_10_MORE_THAN_5'] = True
 
 # Connect to the new SQLite database
 conn_new = sqlite3.connect(new_db_path)

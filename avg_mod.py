@@ -20,18 +20,18 @@ data = data.sort_values(by=['ticker', 'Date'])
 ma_periods = [5, 10, 20]
 
 # Initialize columns for entry and exit signals
-data['entry_signal'] = False
-data['exit_signal'] = False
+data['C_5_MORE_THAN_10'] = False
+data['C_10_MORE_THAN_5'] = False
 
 # Function to calculate indicators and signals for the last row of each group
 def calculate_indicators_signals(group):
     if len(group) >= max(ma_periods):
-        for i, period in enumerate(ma_periods, start=1):
-            group[f'ind{i}'] = group['Adj_Close'].rolling(window=period).mean()
-        entry_condition = (group['ind1'] > group['ind2']) & (group['ind1'].shift(1) <= group['ind2'].shift(1))
-        exit_condition = (group['ind1'] < group['ind2']) & (group['ind1'].shift(1) >= group['ind2'].shift(1))
-        group.loc[entry_condition, 'entry_signal'] = True
-        group.loc[exit_condition, 'exit_signal'] = True
+        for period in ma_periods:
+            group[f'I_MA{period}'] = group['Adj_Close'].rolling(window=period).mean()
+        entry_condition = (group['I_MA5'] > group['I_MA10']) & (group['I_MA5'].shift(1) <= group['I_MA10'].shift(1))
+        exit_condition = (group['I_MA5'] < group['I_MA10']) & (group['I_MA5'].shift(1) >= group['I_MA10'].shift(1))
+        group.loc[entry_condition, 'C_5_MORE_THAN_10'] = True
+        group.loc[exit_condition, 'C_10_MORE_THAN_5'] = True
     return group
 
 # Apply the function to each group

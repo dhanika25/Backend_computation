@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from Backtesting import Backtest as bt
 # Connect to the source SQLite database
 source_db_path = "C:\\Users\\Dhanika Dewan\\Documents\\GitHub\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite"
 source_conn = sqlite3.connect(source_db_path)
@@ -87,6 +87,10 @@ df = implement_macd_strategy(df)
 
 # Print the final DataFrame
 print(df)
+
+result=bt.simpleBacktest(df)
+
+print(result)
 
 # Plotting the results
 plt.figure(figsize=(12,8))

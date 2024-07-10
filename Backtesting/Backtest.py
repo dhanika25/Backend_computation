@@ -7,7 +7,8 @@ def simpleBacktest(df_ticker):
     if df_ticker.empty:
         print(f"Skipping empty DataFrame for ticker: {df_ticker['ticker'].iloc[0] if not df_ticker.empty else 'Unknown'}")
         return
-    
+    print('Date' not in df_ticker.columns) 
+    print(df_ticker['Date'].nunique() )
     if 'Date' not in df_ticker.columns or df_ticker['Date'].nunique() < 2:
         print(f"Insufficient data or missing 'Date' column for ticker: {df_ticker['ticker'].iloc[0] if not df_ticker.empty else 'Unknown'}")
         return

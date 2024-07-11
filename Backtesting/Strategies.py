@@ -3,6 +3,10 @@ from Backtesting import Indicators as ndct
 from Backtesting import utils as btutil
 from Backtesting import Backtest as sb_bt
 
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
+
 import plotly.io as pio
 
 def smaCross(shortma,longma,df,toPlot=False):
@@ -53,90 +57,96 @@ def smaCross2(shortma,longma,df,toPlot=False):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
-# #MACD STRATEGY--------------------------
+# #----------------------------------------------------------MACD STRATEGY-----------------------------------------------------------
+# Function to implement MACD strategy with Stop-Loss and print statements
+def macd_strategy(data, stop_loss_percentage=0.1):
+    data = ndct.calculate_macd(data)  # Calculate MACD within this function
+    buy_signals = [float('nan')] * len(data)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(data)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(data)  # Initialize with 'H' of DataFrame length
+    position = None  # None means no position, 1 means holding stock, 0 means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
 
-# def calculate_macd(data, short_window=12, long_window=26, signal_window=9):
-#     data['ema_short'] = data['close'].ewm(span=short_window, adjust=False).mean()
-#     data['ema_long'] = data['close'].ewm(span=long_window, adjust=False).mean()
-#     data['macd'] = data['ema_short'] - data['ema_long']
-#     data['signal_line'] = data['macd'].ewm(span=signal_window, adjust=False).mean()
-#     data['macd_histogram'] = data['macd'] - data['signal_line']
-#     return data
+    for i in range(1, len(data)):
+        flag = False
+        # Entry Condition
+        if (data['macd_12_26'].iloc[i] > data['signal_line_12_26'].iloc[i] and 
+            data['macd_histogram_12_26'].iloc[i] > 0 and
+            data['macd_12_26'].iloc[i] > 0):
+            flag = True
+            if position != 1:
+                buy_signals[i] = data['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                position = 1
+                buy_price = data['close'].iloc[i]
 
-# def implement_macd_strategy(data, stop_loss_percentage=0.05):
-#     buy_signals = [float('nan')]  # Initialize with nan
-#     sell_signals = [float('nan')]  # Initialize with nan
-#     triggers = ['H']  # Initialize with 'Hold'
-#     position = None  # None means no position, 1 means holding stock, 0 means not holding stock
-#     buy_price = 0  # Track the price at which the stock was bought
+        # Exit Condition based on MACD
+        if (data['macd_12_26'].iloc[i] < data['signal_line_12_26'].iloc[i] or
+              data['macd_histogram_12_26'].iloc[i] < 0 or
+              data['macd_12_26'].iloc[i] < 0):
+            flag = True
+            if position == 1:
+                buy_signals[i] = float('nan')
+                sell_signals[i] = data['close'].iloc[i]
+                triggers[i] = 'S'
+                position = 0
 
-#     for i in range(1, len(data)):
-#         # Entry Condition
-#         if (data['macd'].iloc[i] > data['signal_line'].iloc[i] and 
-#             data['macd_histogram'].iloc[i] > 0 and
-#             data['macd'].iloc[i] > 0):
-#             if position != 1:
-#                 buy_signals.append(data['close'].iloc[i])
-#                 sell_signals.append(float('nan'))
-#                 triggers.append('B')
-#                 position = 1
-#                 buy_price = data['close'].iloc[i]
-#             else:
-#                 buy_signals.append(float('nan'))
-#                 sell_signals.append(float('nan'))
-#                 triggers.append('H')
-        
-#         # Exit Condition based on MACD
-#         elif (data['macd'].iloc[i] < data['signal_line'].iloc[i] or
-#               data['macd_histogram'].iloc[i] < 0 or
-#               data['macd'].iloc[i] < 0):
-#             if position == 1:
-#                 buy_signals.append(float('nan'))
-#                 sell_signals.append(data['close'].iloc[i])
-#                 triggers.append('S')
-#                 position = 0
-#             else:
-#                 buy_signals.append(float('nan'))
-#                 sell_signals.append(float('nan'))
-#                 triggers.append('H')
+        # Exit Condition based on Stop-Loss
+        if data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            flag = True
+            if position == 1:
+                buy_signals[i] = float('nan')
+                sell_signals[i] = data['close'].iloc[i]
+                triggers[i] = 'S'
+                position = 0
 
-#         # Exit Condition based on Stop-Loss
-#         elif position == 1 and data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-#             buy_signals.append(float('nan'))
-#             sell_signals.append(data['close'].iloc[i])
-#             triggers.append('S')
-#             position = 0
-        
-#         else:
-#             buy_signals.append(float('nan'))
-#             sell_signals.append(float('nan'))
-#             triggers.append('H')
+        if not flag:
+            buy_signals[i] = float('nan')
+            sell_signals[i] = float('nan')
+            triggers[i] = 'H'
 
-#     data['buy_signal'] = buy_signals
-#     data['sell_signal'] = sell_signals
-#     data['Trigger'] = triggers
+    # Assign lists to DataFrame columns
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
 
-    
-#     return data
+    return data
 
-# def macd_strategy(df, toPlot=False):
-#     df = calculate_macd(df)
-#     df = implement_macd_strategy(df)
-    
-#     ticker = df['ticker'].iloc[0]
-#     fig = pio.from_json(dr.plotGraph(df, ticker)) if toPlot else None
+def implement_macd(df):
 
-#     df = btutil.getTriggerColumn(df)
-#     pnl_res = sb_bt.simpleBacktest(df)
-    
-#     if toPlot: 
-#         fig = btutil.addBuySell2Graph(df, fig)
-#         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-#     return pnl_res
+    df=macd_strategy(df)
 
-# # Optionally, replace smaCross and smaCross2 with macd_strategy if MACD is preferred
-# def smaCross(shortma, longma, df, toPlot=False):
-#     return macd_strategy(df, toPlot)
+    # Perform a simple backtest
+    result = sb_bt.simpleBacktest(df)
+    print(result)
 
-# def smaCross2(shortma, longma, df, toPlot=False):
-#     return macd_strategy(df, toPlot)    
+    # Plot the graph
+    fig = dr.plotGraph(df, stockName='TATAMOTORS.NS')
+
+    fig= pio.from_json(fig)
+
+
+    # Add MACD line to the third subplot
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['macd_12_26'], mode='lines', name='MACD'), row=3, col=1)
+    # Add signal line to the third subplot
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['signal_line_12_26'], mode='lines', name='Signal Line'), row=3, col=1)
+    # Add MACD histogram to the third subplot
+    fig.add_trace(go.Bar(x=df['Date'], y=df['macd_histogram_12_26'], name='MACD Histogram'), row=3, col=1)
+
+    # Additional lines for MACD
+    fig.update_layout(
+        height=800,
+        xaxis2_rangeslider_visible=False,
+        showlegend=True
+    )
+
+    # Add buy/sell signals to the graph
+    fig = btutil.addBuySell2Graph(df, fig)  
+
+    # Convert the figure to JSON
+    plotly_json = pio.to_json(fig, pretty=True)
+    result = {"plotlyJson": plotly_json}
+
+    # Display the figure
+    fig.show()

@@ -11,18 +11,19 @@ def ma(n, df,fig=None):
         fig.add_trace(go.Scatter(x=df['Date'], y=df['MA'+str(n)], mode='lines', name='MA'+str(n),line=dict(color=color, width=2)))
     return df
 
-# New function to apply MACD strategy and optionally plot the results
-# def macd_with_plot(df, fig=None, stop_loss_percentage=0.05):
-#     df = bt.calculate_macd(df)
-#     df = bt.implement_macd_strategy(df, stop_loss_percentage)
-#     if fig:
-#         fig.add_trace(go.Scatter(x=df['Date'], y=df['macd'], mode='lines', name='MACD', line=dict(color='blue', width=2)))
-#         fig.add_trace(go.Scatter(x=df['Date'], y=df['signal_line'], mode='lines', name='Signal Line', line=dict(color='red', width=2)))
-#         fig.add_trace(go.Bar(x=df['Date'], y=df['macd_histogram'], name='MACD Histogram', marker_color='green'))
 
-#         buy_signals = df[df['buy_signal'].notna()]
-#         sell_signals = df[df['sell_signal'].notna()]
+# MACD STRATEGY
 
-#         fig.add_trace(go.Scatter(x=buy_signals['Date'], y=buy_signals['buy_signal'], mode='markers', name='Buy Signal', marker=dict(symbol='triangle-up', color='green', size=10)))
-#         fig.add_trace(go.Scatter(x=sell_signals['Date'], y=sell_signals['sell_signal'], mode='markers', name='Sell Signal', marker=dict(symbol='triangle-down', color='red', size=10)))
-#     return df, fig
+def ema_column(data,i):
+    data[f'ema_{i}'] = data['close'].ewm(span=i, adjust=False).mean()
+
+# Function to calculate MACD, Signal Line, and MACD Histogram
+def calculate_macd(data, short_window=12, long_window=26, signal_window=9):
+    ema_column(data, short_window)
+    ema_column(data, long_window)
+    # data['ema_short'] = data['close'].ewm(span=short_window, adjust=False).mean()
+    # data['ema_long'] = data['close'].ewm(span=long_window, adjust=False).mean()
+    data['macd_12_26'] = data['ema_12'] - data['ema_26']
+    data['signal_line_12_26'] = data['macd_12_26'].ewm(span=signal_window, adjust=False).mean()
+    data['macd_histogram_12_26'] = data['macd_12_26'] - data['signal_line_12_26']
+    return data

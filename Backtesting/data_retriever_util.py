@@ -38,8 +38,8 @@ def plotGraph(df, stockName="No name"):
 	stockName=stockName[:-3] # Assuming the stockname will be Ticker data.(stockName.NS)
 
     # Initialize the figure with subplots
-	fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=(stockName+" Historical Data", 'Volume'),
-						row_heights=[0.8, 0.2], specs=[[{"secondary_y": False}], [{"secondary_y": True}]])
+	fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=(stockName+" Historical Data", 'Volume','MACD'),
+						row_heights=[0.8, 0.2,0.2], specs=[[{"secondary_y": False}], [{"secondary_y": False}],[{"secondary_y": True}]])
 
 	# Define colors for increasing and decreasing candles
 	increasing_color = 'green'
@@ -60,12 +60,12 @@ def plotGraph(df, stockName="No name"):
 	colors = ['green' if close >= open_ else 'red' for open_, close in zip(df['Open'], df['close'])]
 	fig.add_trace(go.Bar(x=df['Date'], y=df['Volume'], marker_color=colors, name='Volume'), row=2, col=1)
 
-	# Customize layout without setting xaxis_type to 'category'
-	fig.update_layout(height=600, title=stockName,
-					xaxis_title='Date',
-					yaxis_title='Price',
-					xaxis_rangeslider_visible=False,
-					showlegend=False)
+	# # Customize layout without setting xaxis_type to 'category'
+	# fig.update_layout(height=600, title=stockName,
+	# 				xaxis_title='Date',
+	# 				yaxis_title='Price',
+	# 				xaxis_rangeslider_visible=False,
+	# 				showlegend=False)
 
 	# Show the plot
 	# fig.show()

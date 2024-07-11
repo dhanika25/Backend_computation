@@ -9,6 +9,7 @@ def ma(n, df, fig=None):
         fig.add_trace(go.Scatter(x=df['Date'], y=df['MA' + str(n)], mode='lines', name='MA' + str(n), line=dict(color=color, width=2)))
     return df
 
+#BOLLINGER STRATEGY
 def rolling_std(n, df):
     df['rolling_std' + str(n)] = df['close'].rolling(window=n).std()
     return df

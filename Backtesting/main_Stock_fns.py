@@ -8,15 +8,15 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import random
 
-from Backtesting import Indicators as ndct
-from Backtesting import Strategies as strg
+import Indicators as ndct
+import Strategies as strg
 
 print("Loading NSE_Yahoo in memory...", end='')
 # Connect to the SQLite database
-conn = sqlite3.connect('src/Data/NSE_Yahoo_9_FEB_24.sqlite')
+conn = sqlite3.connect('C:\\Users\\Dhanika Dewan\\Documents\\GitHub\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite')
 
 # Step 1: Read the entire table once
-query = "SELECT * FROM NSE"
+query = "SELECT * FROM NSE "
 df = pd.read_sql_query(query, conn)
 conn.close()
 

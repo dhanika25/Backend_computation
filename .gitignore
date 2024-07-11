@@ -3,3 +3,5 @@
 
 Backtesting/__pycache__/
 *.py[cod]
+
+Backtesting/__pycache__/Backtest.cpython-312.pyc

@@ -38,26 +38,6 @@ strategy_name = ["smaCross", "smaCross2"]
 
 print("DF loading completed.")
 
-def get_strategy_function(strategy_name):
-    """
-    Returns a function that calls the specified strategy with extracted arguments.
-
-    Args:
-        strategy_name: The name of the strategy (e.g., "smaCross").
-        data: The data to be passed to the strategy function.
-
-    Returns:
-        A function that calls the strategy with extracted arguments,
-        or None if not found.
-    """
-
-    strategies = {
-        "smaCross": lambda d: strg.smaCross(d["short_window"], d["long_window"], d["df"], d["toPlot"]),
-        "smaCross2": lambda d: strg.smaCross(d["short_window"], d["long_window"], d["df"], d["toPlot"]),
-    }
-
-    return strategies.get(strategy_name)
-
 def getBacktestingResult(tickerList, strategyList, toPlot):
     if not tickerList:
         tickerList = ticker_names  # Replace with your default ticker list
@@ -69,18 +49,18 @@ def getBacktestingResult(tickerList, strategyList, toPlot):
     for ticker in tickerList:
         for strategy in strategyList:
             df_ticker = dfs_dict[ticker]
-            strategy_function = get_strategy_function(strategy["Name"])
 
-            data = strategy["arguments"] # data means arguments needed in the function
-            data["df"] = df_ticker
-            data["toPlot"] = toPlot
+            match strategy:
+                case "smaCross":
+                    data = strategy["arguments"] # data means arguments needed in the function
+                    data["df"] = df_ticker
+                    data["toPlot"] = toPlot
 
-            if strategy_function:
-                # ticker_results[strategy["Name"]] = strategy_function(data)
-                row = strategy_function(data)
-                row["ticker"] = ticker
-                row["strategy"] = strategy["Name"]
-                results.append(row)
-            else:
-                print(f"Invalid strategy name: {strategy['Name']}")
+                    row = strg.smaCross(strategy["short_window"], strategy["long_window"], strategy["df"], strategy["toPlot"])
+                    row["ticker"] = ticker
+                    row["strategy"] = strategy["Name"]
+                    results.append(row)
+                case _:
+                    print(f"Invalid strategy name: {strategy}")
+                    
     return results

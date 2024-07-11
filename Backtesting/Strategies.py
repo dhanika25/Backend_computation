@@ -124,7 +124,7 @@ def implement_macd(df):
     # Plot the graph
     fig = dr.plotGraph(df, stockName='TATAMOTORS.NS')
 
-    fig= pio.from_json(fig)
+    # fig= pio.from_json(fig)
 
 
     # Add MACD line to the third subplot
@@ -134,12 +134,12 @@ def implement_macd(df):
     # Add MACD histogram to the third subplot
     fig.add_trace(go.Bar(x=df['Date'], y=df['macd_histogram_12_26'], name='MACD Histogram'), row=3, col=1)
 
-    # Additional lines for MACD
-    fig.update_layout(
-        height=800,
-        xaxis2_rangeslider_visible=False,
-        showlegend=True
-    )
+    # # Additional lines for MACD
+    # fig.update_layout(
+    #     height=800,
+    #     xaxis2_rangeslider_visible=False,
+    #     showlegend=True
+    # )
 
     # Add buy/sell signals to the graph
     fig = btutil.addBuySell2Graph(df, fig)  

@@ -3,8 +3,3 @@
 
 Backtesting/__pycache__/
 *.py[cod]
-Backtesting/__pycache__/*
-Backtesting/__pycache__/Backtest.cpython-311.pyc
-Backtesting/__pycache__/Indicators.cpython-311.pyc
-Backtesting/__pycache__/Strategies.cpython-311.pyc
-Backtesting/__pycache__/utils.cpython-311.pyc

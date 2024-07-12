@@ -5,7 +5,7 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 from Backtesting import Backtest as bt
 from ta.momentum import RSIIndicator  # Import RSIIndicator from ta
-
+from Backtesting import utils as btutil
 # Connect to the source SQLite database
 source_db_path = r'C:\Users\burma\OneDrive\Documents\GitHub\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite'
 source_conn = sqlite3.connect(source_db_path)
@@ -33,7 +33,9 @@ def implement_rsi_strategy(data, overbought_threshold=70, oversold_threshold=30,
 
     for i in range(1, len(data)):
         # Entry Condition (Buy)
+        flag=False
         if data['RSI'].iloc[i - 1] < oversold_threshold and data['RSI'].iloc[i] >= oversold_threshold:
+            flag=True
             if position != 1:
                 buy_signals.append(data['close'].iloc[i])
                 sell_signals.append(float('nan'))
@@ -47,24 +49,28 @@ def implement_rsi_strategy(data, overbought_threshold=70, oversold_threshold=30,
         
         # Exit Condition (Sell)
         elif data['RSI'].iloc[i - 1] > overbought_threshold and data['RSI'].iloc[i] <= overbought_threshold:
+            flag=True
             if position == 1:
                 buy_signals.append(float('nan'))
                 sell_signals.append(data['close'].iloc[i])
                 triggers.append('S')
                 position = 0
+                print(df['Date'].iloc[i],"-exit condition executed")
+
             else:
                 buy_signals.append(float('nan'))
                 sell_signals.append(float('nan'))
                 triggers.append('H')
 
         # Exit Condition based on Stop-Loss
-        elif position == 1 and data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+        if position == 1 and data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            flag=True
             buy_signals.append(float('nan'))
             sell_signals.append(data['close'].iloc[i])
             triggers.append('S')
             position = 0
-        
-        else:
+            print(df['Date'].iloc[i],"-StopLoss executed")
+        if flag==False:
             buy_signals.append(float('nan'))
             sell_signals.append(float('nan'))
             triggers.append('H')
@@ -155,12 +161,13 @@ def plotGraph(df, stockName="No name", stop_loss_percentage=0.05):
 fig = plotGraph(df, stockName='TATAMOTORS.NS', stop_loss_percentage=0.05)
 
 # Convert the figure to JSON
-plotly_json = pio.to_json(fig, pretty=True)
-result["plotlyJson"] = plotly_json
+#fig = pio.from_json(fig)
+#result["plotlyJson"] = plotly_json
+fig=btutil.addBuySell2Graph(df,fig)
 
 # Display the figure
 fig.show()
 
 # Print backtest results
 print("Backtest Results:")
-print(result)
+#print(result)

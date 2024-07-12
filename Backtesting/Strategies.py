@@ -109,12 +109,16 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
 # #----------------------------------------------------------MACD STRATEGY-----------------------------------------------------------
 def implement_macd(df, short_window, long_window, signal_window, toPlot=False, stop_loss_percentage=0.1):
     
-    """Compares the MACD line (difference between two EMAs) to a signal line (EMA of the MACD line)"""
+    """Compares the MACD line (difference between two EMAs) to a signal line (EMA of the MACD line)
+        EMA is the Exponential Moving Average and MACD is the Moving average convergence/divergence"""
 
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    df = ndct.calculate_macd(df, short_window, long_window, signal_window)  # Calculate MACD within this function
+    # For calling the calculate_macd_and_add_trace(), fig is not passed if the indicators are to be calculated and fig is passed if the indicators are to be traced.
+
+    df = ndct.calculate_macd_and_add_trace(df, short_window, long_window, signal_window)  # Calculate MACD within this function
+
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
@@ -144,7 +148,7 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
                 continue
 
         else:
-            # Exit Condition based on MACD and stop-loss
+            # Exit Condition based on MACD and Stop-loss
             """macd line is below signal line, or
             macd histogram is negative, or
             macd line is negative, or
@@ -169,7 +173,7 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    fig = ndct.add_macd_trace(fig, df, short_window, long_window)
+    fig = ndct.calculate_macd_and_add_trace(df, short_window, long_window,signal_window,fig) #Traces the MACD graph
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:

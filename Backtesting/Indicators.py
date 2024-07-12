@@ -31,11 +31,11 @@ def calculate_bollinger_bands(df, window=20, num_std_dev=2, fig=None):
 def ema_column(data,i):
     data[f'ema_{i}'] = data['close'].ewm(span=i, adjust=False).mean()
 
-def calculate_macd(data, short_window, long_window, signal_window):
+def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_window=9, fig=None):
+    # Calculate MACD
     ema_column(data, short_window)
     ema_column(data, long_window)
 
-    # Properly format the column names
     macd_col = f'macd_{short_window}_{long_window}'
     signal_col = f'signal_line_{short_window}_{long_window}'
     histogram_col = f'macd_histogram_{short_window}_{long_window}'
@@ -43,13 +43,14 @@ def calculate_macd(data, short_window, long_window, signal_window):
     data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
     data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
     data[histogram_col] = data[macd_col] - data[signal_col]
-    return data
 
-def add_macd_trace(fig, df, short_window, long_window):
-    # Add MACD line to the third subplot
-    fig.add_trace(go.Scatter(x=df['Date'], y=df[f'macd_{short_window}_{long_window}'], mode='lines', name='MACD'), row=3, col=1)
-    # Add signal line to the third subplot
-    fig.add_trace(go.Scatter(x=df['Date'], y=df[f'signal_line_{short_window}_{long_window}'], mode='lines', name='Signal Line'), row=3, col=1)
-    # Add MACD histogram to the third subplot
-    fig.add_trace(go.Bar(x=df['Date'], y=df[f'macd_histogram_{short_window}_{long_window}'], name='MACD Histogram'), row=3, col=1)
-    return fig
+    if fig is None:
+        return data
+    else:
+        # Add MACD line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        # Add signal line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        # Add MACD histogram to the third subplot
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+        return fig

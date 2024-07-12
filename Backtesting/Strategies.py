@@ -173,7 +173,7 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    fig = ndct.calculate_macd_and_add_trace(df, short_window, long_window,signal_window,fig) #Traces the MACD graph
+    ndct.calculate_macd_and_add_trace(df, short_window, long_window,signal_window,fig) #Traces the MACD graph
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:

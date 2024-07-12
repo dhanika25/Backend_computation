@@ -1,0 +1,8 @@
+*.sqlite
+*.pyc
+
+Backtesting/__pycache__/
+*.py[cod]
+
+Backtesting/__pycache__/
+*.pyc

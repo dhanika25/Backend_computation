@@ -1,28 +1,56 @@
 import plotly.graph_objects as go
 import random
 
-def ma(n, df,fig=None):
-    df['MA'+str(n)] = df['close'].rolling(window=n).mean()
-    if not fig:
-        pass
-    else:
+def ma(n, df, fig=None):
+    df['MA' + str(n)] = df['close'].rolling(window=n).mean()
+    if fig:
         colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'yellow']
         color = random.choice(colors)
-        fig.add_trace(go.Scatter(x=df['Date'], y=df['MA'+str(n)], mode='lines', name='MA'+str(n),line=dict(color=color, width=2)))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['MA' + str(n)], mode='lines', name='MA' + str(n), line=dict(color=color, width=2)))
     return df
 
-# New function to apply MACD strategy and optionally plot the results
-# def macd_with_plot(df, fig=None, stop_loss_percentage=0.05):
-#     df = bt.calculate_macd(df)
-#     df = bt.implement_macd_strategy(df, stop_loss_percentage)
-#     if fig:
-#         fig.add_trace(go.Scatter(x=df['Date'], y=df['macd'], mode='lines', name='MACD', line=dict(color='blue', width=2)))
-#         fig.add_trace(go.Scatter(x=df['Date'], y=df['signal_line'], mode='lines', name='Signal Line', line=dict(color='red', width=2)))
-#         fig.add_trace(go.Bar(x=df['Date'], y=df['macd_histogram'], name='MACD Histogram', marker_color='green'))
+#BOLLINGER STRATEGY
+def rolling_std(n, df):
+    df['rolling_std' + str(n)] = df['close'].rolling(window=n).std()
+    return df
 
-#         buy_signals = df[df['buy_signal'].notna()]
-#         sell_signals = df[df['sell_signal'].notna()]
+def calculate_bollinger_bands(df, window=20, num_std_dev=2, fig=None):
+    df = ma(window, df)
+    df = rolling_std(window, df)
+    df['upper_band'] = df['MA' + str(window)] + (df['rolling_std' + str(window)] * num_std_dev)
+    df['lower_band'] = df['MA' + str(window)] - (df['rolling_std' + str(window)] * num_std_dev)
+    df['band_width'] = df['upper_band'] - df['lower_band']
+    if fig:
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['upper_band'], mode='lines', name='Upper Bollinger Band', line=dict(color='red')))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['lower_band'], mode='lines', name='Lower Bollinger Band', line=dict(color='blue')))
+    return df
 
-#         fig.add_trace(go.Scatter(x=buy_signals['Date'], y=buy_signals['buy_signal'], mode='markers', name='Buy Signal', marker=dict(symbol='triangle-up', color='green', size=10)))
-#         fig.add_trace(go.Scatter(x=sell_signals['Date'], y=sell_signals['sell_signal'], mode='markers', name='Sell Signal', marker=dict(symbol='triangle-down', color='red', size=10)))
-#     return df, fig
+
+# MACD STRATEGY
+
+def ema_column(data,i):
+    data[f'ema_{i}'] = data['close'].ewm(span=i, adjust=False).mean()
+
+def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_window=9, fig=None):
+    # Calculate MACD
+    ema_column(data, short_window)
+    ema_column(data, long_window)
+
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+
+    data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
+    data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
+    data[histogram_col] = data[macd_col] - data[signal_col]
+
+    if fig is None:
+        return data
+    else:
+        # Add MACD line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        # Add signal line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        # Add MACD histogram to the third subplot
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+        return fig

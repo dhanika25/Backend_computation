@@ -10,20 +10,31 @@ def ma(n, df, fig=None):
     return df
 
 #BOLLINGER STRATEGY
-def rolling_std(n, df):
-    df['rolling_std' + str(n)] = df['close'].rolling(window=n).std()
+def rolling_std(df, window):
+    df[f'rolling_std_{window}'] = df['close'].rolling(window=window).std()
     return df
 
-def calculate_bollinger_bands(df, window=20, num_std_dev=2, fig=None):
-    df = ma(window, df)
-    df = rolling_std(window, df)
-    df['upper_band'] = df['MA' + str(window)] + (df['rolling_std' + str(window)] * num_std_dev)
-    df['lower_band'] = df['MA' + str(window)] - (df['rolling_std' + str(window)] * num_std_dev)
-    df['band_width'] = df['upper_band'] - df['lower_band']
-    if fig:
-        fig.add_trace(go.Scatter(x=df['Date'], y=df['upper_band'], mode='lines', name='Upper Bollinger Band', line=dict(color='red')))
-        fig.add_trace(go.Scatter(x=df['Date'], y=df['lower_band'], mode='lines', name='Lower Bollinger Band', line=dict(color='blue')))
+def ma(window, df):
+    df[f'MA_{window}'] = df['close'].rolling(window=window).mean()
     return df
+
+def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
+    df = ma(window, df)
+    df = rolling_std(df, window)
+    
+    upper_band = f'upper_band_{window}_{num_std_dev}'
+    lower_band = f'lower_band_{window}_{num_std_dev}'
+    band_width = f'band_width_{window}_{num_std_dev}'
+
+    df[upper_band] = df[f'MA_{window}'] + (df[f'rolling_std_{window}'] * num_std_dev)
+    df[lower_band] = df[f'MA_{window}'] - (df[f'rolling_std_{window}'] * num_std_dev)
+    df[band_width] = df[upper_band] - df[lower_band]
+
+    if fig:
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name=upper_band, line=dict(color='red')))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name=lower_band, line=dict(color='blue')))
+    return df
+
 
 
 # MACD STRATEGY

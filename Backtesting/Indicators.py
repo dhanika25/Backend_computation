@@ -31,13 +31,25 @@ def calculate_bollinger_bands(df, window=20, num_std_dev=2, fig=None):
 def ema_column(data,i):
     data[f'ema_{i}'] = data['close'].ewm(span=i, adjust=False).mean()
 
-# Function to calculate MACD, Signal Line, and MACD Histogram
-def calculate_macd(data, short_window=12, long_window=26, signal_window=9):
+def calculate_macd(data, short_window, long_window, signal_window):
     ema_column(data, short_window)
     ema_column(data, long_window)
-    # data['ema_short'] = data['close'].ewm(span=short_window, adjust=False).mean()
-    # data['ema_long'] = data['close'].ewm(span=long_window, adjust=False).mean()
-    data['macd_12_26'] = data['ema_12'] - data['ema_26']
-    data['signal_line_12_26'] = data['macd_12_26'].ewm(span=signal_window, adjust=False).mean()
-    data['macd_histogram_12_26'] = data['macd_12_26'] - data['signal_line_12_26']
+
+    # Properly format the column names
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+
+    data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
+    data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
+    data[histogram_col] = data[macd_col] - data[signal_col]
     return data
+
+def add_macd_trace(fig, df, short_window, long_window):
+    # Add MACD line to the third subplot
+    fig.add_trace(go.Scatter(x=df['Date'], y=df[f'macd_{short_window}_{long_window}'], mode='lines', name='MACD'), row=3, col=1)
+    # Add signal line to the third subplot
+    fig.add_trace(go.Scatter(x=df['Date'], y=df[f'signal_line_{short_window}_{long_window}'], mode='lines', name='Signal Line'), row=3, col=1)
+    # Add MACD histogram to the third subplot
+    fig.add_trace(go.Bar(x=df['Date'], y=df[f'macd_histogram_{short_window}_{long_window}'], name='MACD Histogram'), row=3, col=1)
+    return fig

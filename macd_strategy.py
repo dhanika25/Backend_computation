@@ -18,5 +18,21 @@ df = pd.read_sql(query, source_conn, parse_dates=['Date'])
 # Close the connection to the source database
 source_conn.close()
     
-macd_result= st.implement_macd(df)
+result= st.implement_macd(df, short_window=12, long_window=26, signal_window=9,toPlot=True)
+
+print({
+        'Win Rate [%]': result['Win Rate [%]'],
+        'Net Profit/Loss [$]': result['Net Profit/Loss [$]'],
+        'Total Trades': result['Total Trades'],
+        'Winning Trades': result['Winning Trades']
+    })
+
+# Check if the result contains the plotlyJson key
+if "plotlyJson" in result:
+    # Convert JSON back to a Plotly figure
+    fig = pio.from_json(result["plotlyJson"])
+    # Display the figure
+    fig.show()
+else:
+    print("Plotly JSON object not found in the result.")
 

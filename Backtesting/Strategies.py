@@ -108,20 +108,24 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 # #----------------------------------------------------------MACD STRATEGY-----------------------------------------------------------
-# Function to implement MACD strategy with Stop-Loss and print statements
-def implement_macd(df, stop_loss_percentage=0.1, toPlot=False):
+def implement_macd(df, short_window, long_window, signal_window, toPlot=False, stop_loss_percentage=0.1):
+    
     """Compares the MACD line (difference between two EMAs) to a signal line (EMA of the MACD line)"""
 
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    # def macd_strategy(df, stop_loss_percentage=0.1):
-    df = ndct.calculate_macd(df)  # Calculate MACD within this function
+    df = ndct.calculate_macd(df, short_window, long_window, signal_window)  # Calculate MACD within this function
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
     isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
     buy_price = 0  # Track the price at which the stock was bought
+
+    # Properly format the column names
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
 
     for i in range(1, len(df)):
         if not isHoldingStock:
@@ -130,9 +134,9 @@ def implement_macd(df, stop_loss_percentage=0.1, toPlot=False):
             the macd histogram is positive, and
             macd line is positive"""
 
-            if (df['macd_12_26'].iloc[i] > df['signal_line_12_26'].iloc[i] and 
-                df['macd_histogram_12_26'].iloc[i] > 0 and
-                df['macd_12_26'].iloc[i] > 0):
+            if (df[macd_col].iloc[i] > df[signal_col].iloc[i] and 
+                df[histogram_col].iloc[i] > 0 and
+                df[macd_col].iloc[i] > 0):
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
@@ -147,9 +151,9 @@ def implement_macd(df, stop_loss_percentage=0.1, toPlot=False):
             macd line is negative, or
             close price is less than stop-loss line"""
 
-            if (df['macd_12_26'].iloc[i] < df['signal_line_12_26'].iloc[i] or
-                df['macd_histogram_12_26'].iloc[i] < 0 or
-                df['macd_12_26'].iloc[i] < 0 or
+            if (df[macd_col].iloc[i] < df[signal_col].iloc[i] or
+                df[histogram_col].iloc[i] < 0 or
+                df[macd_col].iloc[i] < 0 or
                 df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
@@ -166,33 +170,10 @@ def implement_macd(df, stop_loss_percentage=0.1, toPlot=False):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    # Perform a simple backtest
-    result = sb_bt.simpleBacktest(df)
-    print(result)
+    fig = ndct.add_macd_trace(fig, df, short_window, long_window)
 
-    # fig= pio.from_json(fig)
-
-
-    # Add MACD line to the third subplot
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['macd_12_26'], mode='lines', name='MACD'), row=3, col=1)
-    # Add signal line to the third subplot
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['signal_line_12_26'], mode='lines', name='Signal Line'), row=3, col=1)
-    # Add MACD histogram to the third subplot
-    fig.add_trace(go.Bar(x=df['Date'], y=df['macd_histogram_12_26'], name='MACD Histogram'), row=3, col=1)
-
-    # # Additional lines for MACD
-    # fig.update_layout(
-    #     height=800,
-    #     xaxis2_rangeslider_visible=False,
-    #     showlegend=True
-    # )
-
-    # Add buy/sell signals to the graph
-    fig = btutil.addBuySell2Graph(df, fig)  
-
-    # Convert the figure to JSON
-    plotly_json = pio.to_json(fig, pretty=True)
-    result = {"plotlyJson": plotly_json}
-
-    # Display the figure
-    fig.show()
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res

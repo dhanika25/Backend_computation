@@ -43,10 +43,18 @@ def smaCross2(shortma, longma, df, toPlot=False):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 #----------------------------Function for BOLLINGER BAND SQUUEZE STRATEGY-----------------------------------------------------------------
-def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02, toPlot=False):
+def bollinger_band_squeeze(df, squeeze_threshold, stop_loss_percentage, bollinger_window, num_std_dev, toPlot=False):
+    """
+    Strategy to buy when the Bollinger Band squeeze condition is met and the price breaks above the upper band,
+    and sell when the squeeze condition ends and the price falls below the lower band or hits the stop-loss level.
+    """
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
-    ndct.calculate_bollinger_bands(df, fig=fig)
+    ndct.calculate_bollinger_bands(df, window=bollinger_window, num_std_dev=num_std_dev, fig=fig)
+
+    upper_band = f'upper_band_{bollinger_window}_{num_std_dev}'
+    lower_band = f'lower_band_{bollinger_window}_{num_std_dev}'
+    band_width = f'band_width_{bollinger_window}_{num_std_dev}'
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -55,14 +63,14 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
     buy_price = 0
 
     for i in range(1, len(df)):
+        squeeze = df[band_width].iloc[i] / df[f'MA_{bollinger_window}'].iloc[i] < squeeze_threshold
         if not isHoldingStock:
             # Entry Condition for Bollinger Band Squeeze
             """Buy when the conditions are met:
             - squeeze condition is True
             - close price is above the upper band"""
             
-            squeeze = df['band_width'].iloc[i] / df['MA' + str(20)].iloc[i] < squeeze_threshold
-            if squeeze and df['close'].iloc[i] > df['upper_band'].iloc[i]:
+            if squeeze and df['close'].iloc[i] > df[upper_band].iloc[i]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
@@ -75,16 +83,7 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
             """Sell when any of the following conditions are met:
             - not squeeze and close price is below the lower band
             - close price is below stop-loss level"""
-
-            squeeze = df['band_width'].iloc[i] / df['MA' + str(20)].iloc[i] < squeeze_threshold
-            if not squeeze and df['close'].iloc[i] < df['lower_band'].iloc[i]:
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-            if df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            if (not squeeze and df['close'].iloc[i] < df[lower_band].iloc[i]) or (df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
@@ -105,6 +104,7 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
 
 # #----------------------------------------------------------MACD STRATEGY-----------------------------------------------------------
 def implement_macd(df, short_window, long_window, signal_window, toPlot=False, stop_loss_percentage=0.1):

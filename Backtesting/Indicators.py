@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 import random
-
+from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA' + str(n)] = df['close'].rolling(window=n).mean()
     if fig:
@@ -12,18 +12,18 @@ def ma(n, df, fig=None):
 #BOLLINGER STRATEGY
 def rolling_std(n, df):
     df['rolling_std' + str(n)] = df['close'].rolling(window=n).std()
-    return df
+
 
 def calculate_bollinger_bands(df, window=20, num_std_dev=2, fig=None):
     df = ma(window, df)
-    df = rolling_std(window, df)
+    rolling_std(window, df)
     df['upper_band'] = df['MA' + str(window)] + (df['rolling_std' + str(window)] * num_std_dev)
     df['lower_band'] = df['MA' + str(window)] - (df['rolling_std' + str(window)] * num_std_dev)
     df['band_width'] = df['upper_band'] - df['lower_band']
     if fig:
         fig.add_trace(go.Scatter(x=df['Date'], y=df['upper_band'], mode='lines', name='Upper Bollinger Band', line=dict(color='red')))
         fig.add_trace(go.Scatter(x=df['Date'], y=df['lower_band'], mode='lines', name='Lower Bollinger Band', line=dict(color='blue')))
-    return df
+
 
 
 # MACD STRATEGY
@@ -35,18 +35,16 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
     # Calculate MACD
     ema_column(data, short_window)
     ema_column(data, long_window)
-
+    #print("Printing data124444:",data)
     macd_col = f'macd_{short_window}_{long_window}'
     signal_col = f'signal_line_{short_window}_{long_window}'
     histogram_col = f'macd_histogram_{short_window}_{long_window}'
-
+    #print("Printing data1255555:",data)
     data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
     data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
     data[histogram_col] = data[macd_col] - data[signal_col]
-
-    if fig is None:
-        return data
-    else:
+    #print("Printing data1212212:",data)
+    if fig:
         # Add MACD line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
         # Add signal line to the third subplot
@@ -54,3 +52,26 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
         # Add MACD histogram to the third subplot
         fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
         return fig
+    
+#RSI Strategy
+
+def calculate_RSI(data, window=14,fig=None):
+    rsi = RSIIndicator(close=data['close'], window=window)
+    data['RSI'] = rsi.rsi()
+    if fig:
+            # Add RSI indicator to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['RSI'], mode='lines', name='RSI'), row=3, col=1)
+
+        # Add overbought (upper bound) and oversold (lower bound) lines to the RSI subplot
+        fig.add_shape(
+            type="line", line=dict(color="red", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=70, x1=data['Date'].iloc[-1], y1=70,  # Upper bound (overbought)
+            row=3, col=1
+        )
+        fig.add_shape(
+            type="line", line=dict(color="blue", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=30, x1=data['Date'].iloc[-1], y1=30,  # Lower bound (oversold)
+            row=3, col=1
+        )
+    #return data
+        

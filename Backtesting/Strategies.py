@@ -46,7 +46,7 @@ def smaCross2(shortma, longma, df, toPlot=False):
 def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02, toPlot=False):
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
-    df = ndct.calculate_bollinger_bands(df, fig=fig)
+    ndct.calculate_bollinger_bands(df, fig=fig)
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -116,8 +116,8 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # For calling the calculate_macd_and_add_trace(), fig is not passed if the indicators are to be calculated and fig is passed if the indicators are to be traced.
-
-    df = ndct.calculate_macd_and_add_trace(df, short_window, long_window, signal_window)  # Calculate MACD within this function
+    #print("Printing data121333:",df)
+    ndct.calculate_macd_and_add_trace(df, short_window, long_window, signal_window)  # Calculate MACD within this function
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
@@ -180,3 +180,70 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+# #----------------------------------------------------------RSI Strategy-----------------------------------------------------------
+def implement_RSI(data, overbought_threshold=70, oversold_threshold=30,toPlot=False, stop_loss_percentage=0.05):
+
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_RSI(data,fig=fig)
+    buy_signals = [float('nan')]  # Initialize with nan
+    sell_signals = [float('nan')]  # Initialize with nan
+    triggers = ['H']  # Initialize with 'Hold'
+    position = None  # None means no position, 1 means holding stock, 0 means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(1, len(data)):
+        # Entry Condition (Buy)
+        flag=False
+        if data['RSI'].iloc[i - 1] < oversold_threshold and data['RSI'].iloc[i] >= oversold_threshold:
+            flag=True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+                buy_price = data['close'].iloc[i]
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+        
+        # Exit Condition (Sell)
+        elif data['RSI'].iloc[i - 1] > overbought_threshold and data['RSI'].iloc[i] <= overbought_threshold:
+            flag=True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+                print(data['Date'].iloc[i],"-exit condition executed")
+
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        # Exit Condition based on Stop-Loss
+        if position == 1 and data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            flag=True
+            buy_signals.append(float('nan'))
+            sell_signals.append(data['close'].iloc[i])
+            triggers.append('S')
+            position = 0
+            print(data['Date'].iloc[i],"-StopLoss executed")
+        if flag==False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+

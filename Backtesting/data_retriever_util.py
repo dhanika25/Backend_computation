@@ -31,7 +31,7 @@ def plotGraph(df, stockName="No name"):
 	fig.add_trace(go.Bar(x=df['Date'], y=df['Volume'], marker_color=colors, name='Volume'), row=2, col=1)
 
 	# Customize layout without setting xaxis_type to 'category'
-	fig.update_layout(height=600, title=stockName,
+	fig.update_layout(height=900, title=stockName,
 					xaxis_title='Date',
 					yaxis_title='Price',
 					xaxis_rangeslider_visible=False,

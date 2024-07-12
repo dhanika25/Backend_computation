@@ -45,13 +45,13 @@ def smaCross2(shortma, longma, df, toPlot=False):
 #----------------------------Function for BOLLINGER BAND SQUUEZE STRATEGY-----------------------------------------------------------------
 def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02, toPlot=False):
     ticker = df['ticker'].iloc[0]
-    fig = pio.from_json(dr.plotGraph(df, ticker)) if toPlot else None
+    fig = dr.plotGraph(df, ticker) if toPlot else None
     df = ndct.calculate_bollinger_bands(df, fig=fig)
 
     buy_signals = [float('nan')]
     sell_signals = [float('nan')]
     triggers = ['H']
-    position = None
+    isHoldingStock = None
     buy_price = 0
 
     for i in range(1, len(df)):
@@ -60,11 +60,11 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
 
         if condition_met == False:
             if squeeze and df['close'].iloc[i] > df['upper_band'].iloc[i]:
-                if position != 1:
+                if isHoldingStock != 1:
                     buy_signals.append(df['close'].iloc[i])
                     sell_signals.append(float('nan'))
                     triggers.append('B')
-                    position = 1
+                    isHoldingStock = 1
                     buy_price = df['close'].iloc[i]
                 else:
                     buy_signals.append(float('nan'))
@@ -74,11 +74,11 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
 
         if condition_met == False:
             if not squeeze and df['close'].iloc[i] < df['lower_band'].iloc[i]:
-                if position == 1:
+                if isHoldingStock == 1:
                     buy_signals.append(float('nan'))
                     sell_signals.append(df['close'].iloc[i])
                     triggers.append('S')
-                    position = 0
+                    isHoldingStock = 0
                 else:
                     buy_signals.append(float('nan'))
                     sell_signals.append(float('nan'))
@@ -86,11 +86,11 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
                 condition_met = True
 
         if condition_met == False:
-            if position == 1 and df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            if isHoldingStock == 1 and df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals.append(float('nan'))
                 sell_signals.append(df['close'].iloc[i])
                 triggers.append('S')
-                position = 0
+                isHoldingStock = 0
                 condition_met = True
 
         if condition_met == False:
@@ -109,70 +109,66 @@ def bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02,
     return pnl_res
 # #----------------------------------------------------------MACD STRATEGY-----------------------------------------------------------
 # Function to implement MACD strategy with Stop-Loss and print statements
-def macd_strategy(data, stop_loss_percentage=0.1):
-    data = ndct.calculate_macd(data)  # Calculate MACD within this function
-    buy_signals = [float('nan')] * len(data)  # Initialize with NaNs of DataFrame length
-    sell_signals = [float('nan')] * len(data)  # Initialize with NaNs of DataFrame length
-    triggers = ['H'] * len(data)  # Initialize with 'H' of DataFrame length
-    position = None  # None means no position, 1 means holding stock, 0 means not holding stock
+def implement_macd(df, stop_loss_percentage=0.1, toPlot=False):
+    """Compares the MACD line (difference between two EMAs) to a signal line (EMA of the MACD line)"""
+
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # def macd_strategy(df, stop_loss_percentage=0.1):
+    df = ndct.calculate_macd(df)  # Calculate MACD within this function
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
+    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
     buy_price = 0  # Track the price at which the stock was bought
 
-    for i in range(1, len(data)):
-        flag = False
-        # Entry Condition
-        if (data['macd_12_26'].iloc[i] > data['signal_line_12_26'].iloc[i] and 
-            data['macd_histogram_12_26'].iloc[i] > 0 and
-            data['macd_12_26'].iloc[i] > 0):
-            flag = True
-            if position != 1:
-                buy_signals[i] = data['close'].iloc[i]
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when the MACD line crosses above the signal line, and
+            the macd histogram is positive, and
+            macd line is positive"""
+
+            if (df['macd_12_26'].iloc[i] > df['signal_line_12_26'].iloc[i] and 
+                df['macd_histogram_12_26'].iloc[i] > 0 and
+                df['macd_12_26'].iloc[i] > 0):
+                buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
-                position = 1
-                buy_price = data['close'].iloc[i]
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
 
-        # Exit Condition based on MACD
-        if (data['macd_12_26'].iloc[i] < data['signal_line_12_26'].iloc[i] or
-              data['macd_histogram_12_26'].iloc[i] < 0 or
-              data['macd_12_26'].iloc[i] < 0):
-            flag = True
-            if position == 1:
+        else:
+            # Exit Condition based on MACD and stop-loss
+            """macd line is below signal line, or
+            macd histogram is negative, or
+            macd line is negative, or
+            close price is less than stop-loss line"""
+
+            if (df['macd_12_26'].iloc[i] < df['signal_line_12_26'].iloc[i] or
+                df['macd_histogram_12_26'].iloc[i] < 0 or
+                df['macd_12_26'].iloc[i] < 0 or
+                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
                 buy_signals[i] = float('nan')
-                sell_signals[i] = data['close'].iloc[i]
+                sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
-                position = 0
+                isHoldingStock = False
+                continue
 
-        # Exit Condition based on Stop-Loss
-        if data['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-            flag = True
-            if position == 1:
-                buy_signals[i] = float('nan')
-                sell_signals[i] = data['close'].iloc[i]
-                triggers[i] = 'S'
-                position = 0
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
 
-        if not flag:
-            buy_signals[i] = float('nan')
-            sell_signals[i] = float('nan')
-            triggers[i] = 'H'
-
-    # Assign lists to DataFrame columns
-    data['buy_signal'] = buy_signals
-    data['sell_signal'] = sell_signals
-    data['Trigger'] = triggers
-
-    return data
-
-def implement_macd(df):
-
-    df=macd_strategy(df)
+    # Assign lists to dfFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
 
     # Perform a simple backtest
     result = sb_bt.simpleBacktest(df)
     print(result)
-
-    # Plot the graph
-    fig = dr.plotGraph(df, stockName='TATAMOTORS.NS')
 
     # fig= pio.from_json(fig)
 

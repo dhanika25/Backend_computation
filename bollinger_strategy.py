@@ -7,7 +7,8 @@ from Backtesting import utils as btutil
 from Backtesting import Strategies as st
 
 # Connect to the source SQLite database
-source_db_path = "C:\\Users\\Lenovo\\Downloads\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite"
+# source_db_path = "C:\\Users\\Lenovo\\Downloads\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite"
+source_db_path = r"D:\Dkafka\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite"
 source_conn = sqlite3.connect(source_db_path)
 
 # Read the data into a pandas DataFrame

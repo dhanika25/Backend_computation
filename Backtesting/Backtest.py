@@ -34,11 +34,13 @@ def simpleBacktest(df_ticker):
             elif self.data['Trigger'][-1] == 'S':
                 self.sell()
         
+        
     # Run the backtest
     bt_result = bt.Backtest(data, backtest, trade_on_close=False, exclusive_orders=True)
     result = bt_result.run()
 
     net_profit = result.loc["Equity Final [$]"] - 10000
+    print(result)
 
     # print(result._trades)
     # Get winning trades

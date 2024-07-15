@@ -23,13 +23,14 @@ if 'Volume' not in df.columns:
 # Close the connection to the source database
 source_conn.close()
 
-# Parameters for Donchian Channels strategy
-n = 20  # This should be passed as an argument to avoid hardcoding
+# Parameters for Gann Angles strategy
+key_price_points = [100, 200, 300]  # Example key price points; should be passed as arguments to avoid hardcoding
+angles = [45, 90, 135]  # Example angles; should be passed as arguments to avoid hardcoding
 stop_loss_percentage = 0.05
 toPlot = True
 
-# Apply Donchian Channels strategy
-result = st.implement_donchian_channels(df, n, stop_loss_percentage, toPlot)
+# Apply Gann Angles strategy
+result = st.implement_gann_angles(df, key_price_points, angles, stop_loss_percentage, toPlot)
 
 # Print the result summary
 print({

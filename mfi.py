@@ -23,13 +23,13 @@ if 'Volume' not in df.columns:
 # Close the connection to the source database
 source_conn.close()
 
-# Parameters for Donchian Channels strategy
-n = 20  # This should be passed as an argument to avoid hardcoding
+# Parameters for MFI strategy
+n = 14  # Period for the MFI calculation
 stop_loss_percentage = 0.05
 toPlot = True
 
-# Apply Donchian Channels strategy
-result = st.implement_donchian_channels(df, n, stop_loss_percentage, toPlot)
+# Apply MFI strategy
+result = st.implement_mfi_strategy(df, n, stop_loss_percentage, toPlot)
 
 # Print the result summary
 print({

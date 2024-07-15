@@ -466,20 +466,15 @@ def identify_elliott_wave_patterns(data, fig=None):
     return wave_data
 
 #DONCHIAN CHANNEL STARTEGY
-def calculate_donchian_channels(data, period, fig=None):
-    """
-    Calculate Donchian Channels and optionally plot them.
-    """
-    data['Upper_Channel'] = data['high'].rolling(window=period).max()
-    data['Lower_Channel'] = data['low'].rolling(window=period).min()
-
+def calculate_donchian_channels(data, n, fig=None):
+    """Calculate the Donchian Channels and optionally plot them."""
+    data['Upper_Channel'] = data['high'].rolling(window=n).max()
+    data['Lower_Channel'] = data['low'].rolling(window=n).min()
+    
     if fig:
-        # Add Donchian Channels to the third subplot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Channel'], mode='lines', name='Upper Channel', line=dict(color='blue')), row=3, col=1)
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Channel'], mode='lines', name='Lower Channel', line=dict(color='red')), row=3, col=1)
-
-    return data
-
+        # Add Donchian Channels to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Channel'], mode='lines', name='Upper Channel'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
 #Flags and Pennants
 
@@ -546,3 +541,123 @@ def calculate_triangle_and_add_trace(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_trendline'], mode='lines', name='Lower Trendline'), row=3, col=1)
     
     return data
+
+
+#GANN ANGLES
+import plotly.graph_objs as go
+import numpy as np
+
+def calculate_gann_angles(data, key_price_points, angles, fig=None):
+    """Calculate and plot Gann Angles from key price points."""
+    for key_price in key_price_points:
+        for angle in angles:
+            # Calculate the slope based on the angle (assuming 1 unit of time = 1 unit of price)
+            slope = np.tan(np.radians(angle))
+            gann_line = [key_price + slope * (i - key_price_points.index(key_price)) for i in range(len(data))]
+            data[f'Gann_{angle}_{key_price}'] = gann_line
+            
+            if fig:
+                # Add Gann Angle line to the chart
+                fig.add_trace(go.Scatter(x=data['Date'], y=gann_line, mode='lines', name=f'Gann {angle}° from {key_price}'))
+
+
+
+#MOMENTUM INDICATOR
+def calculate_momentum(data, n, fig=None):
+    """Calculate the Momentum indicator and optionally plot it."""
+    momentum = data['close'] - data['close'].shift(n)
+    data['Momentum'] = momentum
+    
+    if fig:
+        # Add Momentum line to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Momentum'], mode='lines', name='Momentum'), row=3, col=1)
+
+
+#MONEY FLOW INDEX
+import pandas as pd
+import plotly.graph_objs as go
+
+def calculate_mfi(data, n, fig=None):
+    """Calculate the Money Flow Index (MFI) and optionally plot it."""
+    typical_price = (data['high'] + data['low'] + data['close']) / 3
+    money_flow = typical_price * data['Volume']
+
+    positive_flow = []
+    negative_flow = []
+
+    for i in range(1, len(data)):
+        if typical_price[i] > typical_price[i-1]:
+            positive_flow.append(money_flow[i])
+            negative_flow.append(0)
+        elif typical_price[i] < typical_price[i-1]:
+            positive_flow.append(0)
+            negative_flow.append(money_flow[i])
+        else:
+            positive_flow.append(0)
+            negative_flow.append(0)
+
+    positive_mf = pd.Series(positive_flow).rolling(window=n).sum()
+    negative_mf = pd.Series(negative_flow).rolling(window=n).sum()
+
+    mfi = 100 - (100 / (1 + positive_mf / negative_mf))
+    data['MFI'] = mfi
+
+    if fig:
+        # Add MFI to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['MFI'], mode='lines', name='MFI'), row=3, col=1)
+
+
+#TRIX INDICATOR
+def calculate_trix(data, n, fig=None):
+    """Calculate the TRIX indicator and optionally plot it."""
+    # Calculate the single smoothed EMA
+    ema1 = data['close'].ewm(span=n, adjust=False).mean()
+    # Calculate the double smoothed EMA
+    ema2 = ema1.ewm(span=n, adjust=False).mean()
+    # Calculate the triple smoothed EMA
+    ema3 = ema2.ewm(span=n, adjust=False).mean()
+    # Calculate the 1-period rate-of-change (ROC) of the triple smoothed EMA
+    trix = ema3.pct_change() * 100
+    data['TRIX'] = trix
+
+    # Calculate the signal line (9-period EMA of the TRIX)
+    signal_line = trix.ewm(span=9, adjust=False).mean()
+    data['TRIX_Signal'] = signal_line
+
+    if fig:
+        # Add TRIX and signal line to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['TRIX'], mode='lines', name='TRIX'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['TRIX_Signal'], mode='lines', name='TRIX Signal'), row=3, col=1)
+
+
+#Price Rate of Change (PROC) Strategy
+def calculate_proc(data, n, fig=None):
+    """Calculate the Price Rate of Change (PROC) and optionally plot it."""
+    proc = ((data['close'] - data['close'].shift(n)) / data['close'].shift(n)) * 100
+    data['PROC'] = proc
+
+    if fig:
+        # Add PROC to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['PROC'], mode='lines', name='PROC'), row=3, col=1)
+
+#VORTEX INDICATOR STRATREGY
+def calculate_vortex(data, n, fig=None):
+    """Calculate the Vortex Indicator (VI) and optionally plot it."""
+    tr = np.maximum(data['high'] - data['low'], np.maximum(abs(data['high'] - data['close'].shift(1)), abs(data['low'] - data['close'].shift(1))))
+    atr = tr.rolling(window=n).sum()
+
+    vm_plus = abs(data['high'] - data['low'].shift(1))
+    vm_minus = abs(data['low'] - data['high'].shift(1))
+    
+    vi_plus = vm_plus.rolling(window=n).sum() / atr
+    vi_minus = vm_minus.rolling(window=n).sum() / atr
+
+    data['VI+'] = vi_plus
+    data['VI-'] = vi_minus
+
+    if fig:
+        # Add VI+ and VI- to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['VI+'], mode='lines', name='VI+'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['VI-'], mode='lines', name='VI-'), row=3, col=1)
+
+

@@ -301,3 +301,15 @@ def find_and_plot_candlestick_patterns(data, fig=None):
                 row=1, col=1
             )
     return data,fig
+
+#VPT STRATEGY
+def calculate_vpt(data, fig=None):
+    """Calculate the Volume Price Trend (VPT) and optionally plot it."""
+    vpt = [0]  # Start with VPT of 0
+    for i in range(1, len(data)):
+        vpt.append(vpt[-1] + (data['Volume'].iloc[i] * (data['close'].iloc[i] - data['close'].iloc[i-1]) / data['close'].iloc[i-1]))
+    data['VPT'] = vpt
+    
+    if fig:
+        # Add VPT line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['VPT'], mode='lines', name='VPT'), row=3, col=1)

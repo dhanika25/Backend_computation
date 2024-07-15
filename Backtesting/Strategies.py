@@ -575,3 +575,62 @@ def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_per
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+
+#-----------------------------------------VPT STRATEGY-----------------------------------------------------------------------------------
+def implement_vpt(df, stop_loss_percentage, toPlot=False):
+    """Implements the VPT strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Ensure 'volume' column is present
+    if 'Volume' not in df.columns:
+        raise KeyError("The DataFrame does not contain a 'volume' column.")
+    
+    # Calculate VPT
+    ndct.calculate_vpt(df, fig)  # Calculate VPT within this function
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
+    isHoldingStock = False  # Boolean to check if holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when VPT is rising with increasing volume"""
+            if df['VPT'].iloc[i] > df['VPT'].iloc[i-1] and df['Volume'].iloc[i] > df['Volume'].iloc[i-1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on VPT and Stop-loss
+            """Sell when VPT is falling with decreasing volume or close price is less than stop-loss line"""
+            if df['VPT'].iloc[i] < df['VPT'].iloc[i-1] or df['Volume'].iloc[i] < df['Volume'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to DataFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    ndct.calculate_vpt(df, fig)
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res

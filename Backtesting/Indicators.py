@@ -83,6 +83,7 @@ def calculate_RSI(data, window=14,fig=None):
     #return data
         
 # Stochastic Oscillator
+
 def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,fig=None):
     # Calculate %K
     data[f'lowest_flow_{k_window}_{d_window}'] = data['low'].rolling(window=k_window).min()
@@ -96,3 +97,93 @@ def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%K_{k_window}_{d_window}'], mode='lines', name=f'%K_{k_window}_{d_window}'), row=3, col=1)
         # Add %D line to the subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%D_{k_window}_{d_window}'], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)
+
+#Fibonacci Retracement
+def calculate_and_add_fibonacci_levels(data, fig=None):
+    max_price = data['close'].max()
+    min_price = data['close'].min()
+
+    diff = max_price - min_price
+    levels = {
+        '0%': max_price,
+        '23.6%': max_price - 0.236 * diff,
+        '38.2%': max_price - 0.382 * diff,
+        '50%': max_price - 0.5 * diff,
+        '61.8%': max_price - 0.618 * diff,
+        '100%': min_price
+    }
+
+    for level, value in levels.items():
+        data[f'fibo_{level}'] = value
+
+    if fig:
+        for level, value in levels.items():
+            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=1, col=1)
+    
+    return levels
+
+# ADX
+
+def calculate_adx_and_add_trace(data, period=14, fig=None):
+    # Calculate True Range
+    data['high_diff'] = data['high'].diff()
+    data['low_diff'] = data['low'].diff()
+    data['close_diff'] = data['close'].diff()
+    
+    data['tr'] = data[['high_diff', 'low_diff', 'close_diff']].max(axis=1).abs()
+    
+    # Calculate +DI and -DI
+    data['+DI'] = 100 * (data['high'].diff(periods=1).where(data['high'].diff(periods=1) > data['low'].diff(periods=1), 0).rolling(window=period).mean() / data['tr'].rolling(window=period).mean())
+    data['-DI'] = 100 * (data['low'].diff(periods=1).where(data['low'].diff(periods=1) > data['high'].diff(periods=1), 0).rolling(window=period).mean() / data['tr'].rolling(window=period).mean())
+    
+    # Calculate ADX
+    data['adx'] = 100 * (data['+DI'] - data['-DI']).abs().rolling(window=period).mean()
+
+    # Add traces to the figure if provided
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['adx'], mode='lines', name='ADX'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['+DI'], mode='lines', name='+DI'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['-DI'], mode='lines', name='-DI'), row=3, col=1)
+
+# Parabolic SAR
+
+def calculate_parabolic_sar_and_add_trace(data, af=0.02, max_af=0.2, fig=None):
+    high = data['high']
+    low = data['low']
+    close = data['close']
+
+    sar = [close[0]]
+    trend = 1  # 1 for uptrend, -1 for downtrend
+    ep = high[0] if trend == 1 else low[0]
+    af_value = af
+
+    for i in range(1, len(data)):
+        prev_sar = sar[-1]
+
+        if trend == 1:
+            sar.append(prev_sar + af_value * (ep - prev_sar))
+            if low[i] < sar[-1]:
+                trend = -1
+                sar[-1] = ep
+                ep = low[i]
+                af_value = af
+            else:
+                if high[i] > ep:
+                    ep = high[i]
+                    af_value = min(af_value + af, max_af)
+        else:
+            sar.append(prev_sar + af_value * (ep - prev_sar))
+            if high[i] > sar[-1]:
+                trend = 1
+                sar[-1] = ep
+                ep = high[i]
+                af_value = af
+            else:
+                if low[i] < ep:
+                    ep = low[i]
+                    af_value = min(af_value + af, max_af)
+
+    data['parabolic_sar'] = sar
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['parabolic_sar'], mode='markers', name='Parabolic SAR', marker=dict(color='red')), row=3, col=1)

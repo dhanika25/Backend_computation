@@ -224,3 +224,21 @@ def calculate_parabolic_sar_and_add_trace(data, af=0.02, max_af=0.2, fig=None):
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['parabolic_sar'], mode='markers', name='Parabolic SAR', marker=dict(color='red')), row=3, col=1)
+
+ 
+ #ON BALANCE VOLUME(OBV)
+def calculate_obv(data, fig=None):
+    """Calculate the On-Balance Volume (OBV) and optionally plot it."""
+    obv = [0]  # Start with OBV of 0
+    for i in range(1, len(data)):
+        if data['close'].iloc[i] > data['close'].iloc[i-1]:
+            obv.append(obv[-1] + data['Volume'].iloc[i])
+        elif data['close'].iloc[i] < data['close'].iloc[i-1]:
+            obv.append(obv[-1] - data['Volume'].iloc[i])
+        else:
+            obv.append(obv[-1])
+    data['OBV'] = obv
+    
+    if fig:
+        # Add OBV line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['OBV'], mode='lines', name='OBV'), row=3, col=1)

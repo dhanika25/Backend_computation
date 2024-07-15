@@ -358,3 +358,63 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+#------------------------------------------------OBV STRATEGY-----------------------------------------------------------------------------------
+def implement_obv(df, stop_loss_percentage, toPlot=False):
+    """Implements the OBV strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Ensure 'volume' column is present
+    if 'Volume' not in df.columns:
+        raise KeyError("The DataFrame does not contain a 'volume' column.")
+    
+    # Calculate OBV
+    ndct.calculate_obv(df)  # Calculate OBV within this function
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
+    isHoldingStock = False  # Boolean to check if holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when OBV rises with the price"""
+            if df['OBV'].iloc[i] > df['OBV'].iloc[i-1] and df['close'].iloc[i] > df['close'].iloc[i-1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on OBV and Stop-loss
+            """Sell when OBV falls with the price or close price is less than stop-loss line"""
+            if df['OBV'].iloc[i] < df['OBV'].iloc[i-1] or df['close'].iloc[i] < df['close'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to DataFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    # Add OBV to the plot if required
+    ndct.calculate_obv(df, fig)
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+

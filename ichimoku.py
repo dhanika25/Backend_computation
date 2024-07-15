@@ -8,9 +8,7 @@ from Backtesting import utils as btutil
 from Backtesting import Strategies as st
 
 # Connect to the source SQLite database
-source_db_path = "C:\\Users\\Lenovo\\Downloads\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite"
-#source_db_path = r"D:\Dkafka\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite"
-#source_db_path = r'C:\Users\burma\OneDrive\Documents\GitHub\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite'
+source_db_path = r'C:\Users\Lenovo\Downloads\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite'
 source_conn = sqlite3.connect(source_db_path)
 
 # Read the data into a pandas DataFrame
@@ -20,8 +18,18 @@ df = pd.read_sql(query, source_conn, parse_dates=['Date'])
 # Close the connection to the source database
 source_conn.close()
 
-result = st.bollinger_band_squeeze(df, squeeze_threshold=0.1, stop_loss_percentage=0.02, bollinger_window=20, num_std_dev=2, toPlot=True)
+# Parameters for Ichimoku Cloud strategy
+tenkan_sen_period = 9
+kijun_sen_period = 26
+senkou_span_b_period = 52
+senkou_shift = 26
+stop_loss_percentage = 0.05
+toPlot = True
 
+# Apply Ichimoku Cloud strategy
+result = st.ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, stop_loss_percentage, toPlot)
+
+# Print the result summary
 print({
     'Win Rate [%]': result['Win Rate [%]'],
     'Net Profit/Loss [$]': result['Net Profit/Loss [$]'],

@@ -1,5 +1,7 @@
 import plotly.graph_objects as go
 import random
+import pandas as pd
+
 # from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA_' + str(n)] = df['close'].rolling(window=n).mean()
@@ -12,10 +14,12 @@ def ma(n, df, fig=None):
 #BOLLINGER STRATEGY
 def rolling_std(df, window):
     df[f'rolling_std_{window}'] = df['close'].rolling(window=window).std()
-    
+
+def ma(window, df):
+    df[f'MA_{window}'] = df['close'].rolling(window=window).mean()
 
 def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
-    df = ma(window, df)
+    ma(window, df)
     rolling_std(df, window)
     
     upper_band = f'upper_band_{window}_{num_std_dev}'
@@ -23,12 +27,16 @@ def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
     band_width = f'band_width_{window}_{num_std_dev}'
 
     df[upper_band] = df[f'MA_{window}'] + (df[f'rolling_std_{window}'] * num_std_dev)
-    df[lower_band] = df[f'MA_{window}'] - (df[f'rolling_std_{window}'] * num_std_dev)
+    df[lower_band] = df[f'MA_{window}'] - df[f'rolling_std_{window}'] * num_std_dev
     df[band_width] = df[upper_band] - df[lower_band]
 
     if fig:
-        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name=upper_band, line=dict(color='red')))
-        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name=lower_band, line=dict(color='blue')))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name='Upper Band', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name='Lower Band', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[f'MA_{window}'], mode='lines', name='Moving Average', line=dict(color='green')), row=3, col=1)
+    
+    return df
+
     
 
 
@@ -63,8 +71,8 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
 #RSI Strategy
 
 def calculate_RSI(data, window=14,fig=None):
-    rsi = RSIIndicator(close=data['close'], window=window)
-    data['RSI'] = rsi.rsi()
+    #rsi = RSIIndicator(close=data['close'], window=window)
+    #data['RSI'] = rsi.rsi()
     if fig:
             # Add RSI indicator to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['RSI'], mode='lines', name='RSI'), row=3, col=1)
@@ -98,6 +106,35 @@ def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,
         # Add %D line to the subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%D_{k_window}_{d_window}'], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)
 
+
+#ICHIMOKU
+def calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig=None):
+    # Tenkan-sen (Conversion Line)
+    df['tenkan_sen'] = (df['high'].rolling(window=tenkan_sen_period).max() + df['low'].rolling(window=tenkan_sen_period).min()) / 2
+    
+    # Kijun-sen (Base Line)
+    df['kijun_sen'] = (df['high'].rolling(window=kijun_sen_period).max() + df['low'].rolling(window=kijun_sen_period).min()) / 2
+    
+    # Senkou Span A (Leading Span A)
+    df['senkou_span_a'] = ((df['tenkan_sen'] + df['kijun_sen']) / 2).shift(senkou_shift)
+    
+    # Senkou Span B (Leading Span B)
+    df['senkou_span_b'] = (df['high'].rolling(window=senkou_span_b_period).max() + df['low'].rolling(window=senkou_span_b_period).min()) / 2
+    df['senkou_span_b'] = df['senkou_span_b'].shift(senkou_shift)
+    
+    # Chikou Span (Lagging Span)
+    df['chikou_span'] = df['close'].shift(-senkou_shift)
+    
+    # Plotting if fig is provided
+    if fig:
+        # Create a subplot for Ichimoku Cloud
+        fig.add_trace(go.Scatter(x=df.index, y=df['tenkan_sen'], mode='lines', name='Tenkan-sen', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['kijun_sen'], mode='lines', name='Kijun-sen', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_a'], mode='lines', name='Senkou Span A', line=dict(color='green')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_b'], mode='lines', name='Senkou Span B', line=dict(color='orange')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['chikou_span'], mode='lines', name='Chikou Span', line=dict(color='purple')), row=3, col=1)
+
+    return df
 #Fibonacci Retracement
 def calculate_and_add_fibonacci_levels(data, fig=None):
     max_price = data['close'].max()
@@ -187,3 +224,61 @@ def calculate_parabolic_sar_and_add_trace(data, af=0.02, max_af=0.2, fig=None):
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['parabolic_sar'], mode='markers', name='Parabolic SAR', marker=dict(color='red')), row=3, col=1)
+
+
+# Candlestick Patterns
+
+def find_and_plot_candlestick_patterns(data, fig=None):
+    required_columns = ['Open', 'close', 'high', 'low']
+    
+    # Check if all required columns are in the DataFrame
+    for col in required_columns:
+        if col not in data.columns:
+            raise KeyError(f"'{col}' column is missing from the DataFrame")
+    
+    data['candlestick_pattern'] = None
+    
+    for i in range(1, len(data)):
+        open_price = data['Open'].iloc[i]
+        close_price = data['close'].iloc[i]
+        high_price = data['high'].iloc[i]
+        low_price = data['low'].iloc[i]
+        
+        if abs(open_price - close_price) < ((high_price - low_price) * 0.1):
+            data.at[i, 'candlestick_pattern'] = 'doji'
+        elif open_price > close_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (low_price == min(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'hammer'
+        elif close_price > open_price and data['close'].iloc[i-1] < data['Open'].iloc[i-1] and (close_price > data['Open'].iloc[i-1]) and (open_price < data['close'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bullish_engulfing'
+        elif open_price > close_price and data['close'].iloc[i-1] > data['Open'].iloc[i-1] and (open_price > data['close'].iloc[i-1]) and (close_price < data['Open'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bearish_engulfing'
+        elif close_price < open_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (high_price == max(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'shooting_star'
+    
+    if fig:
+        patterns = ['doji', 'hammer', 'bullish_engulfing', 'bearish_engulfing', 'shooting_star']
+        colors = {
+            'doji': 'yellow',
+            'hammer': 'green',
+            'bullish_engulfing': 'blue',
+            'bearish_engulfing': 'red',
+            'shooting_star': 'purple'
+        }
+
+        for pattern in patterns:
+            pattern_data = data[data['candlestick_pattern'] == pattern]
+            fig.add_trace(
+                go.Scatter(
+                    x=pattern_data['Date'],
+                    y=pattern_data['close'],
+                    mode='markers',
+                    marker=dict(
+                        size=10,
+                        color=colors[pattern],
+                        symbol='circle'
+                    ),
+                    name=pattern.capitalize()
+                ),
+                row=1, col=1
+            )
+    return data,fig

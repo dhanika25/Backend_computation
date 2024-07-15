@@ -249,7 +249,7 @@ def implement_RSI(data, overbought_threshold=70, oversold_threshold=30,toPlot=Fa
 
 # -------------------------------------------------Stochastic Oscillator------------------------------------------------------------
 
-def implement_stochastic(df, k_window=14, d_window=3, toPlot=False, stop_loss_percentage=0.1):
+def implement_stochastic(df, k_window, d_window, toPlot=False, stop_loss_percentage=0.1):
     """Implements Stochastic Oscillator strategy."""
     
     ticker = df['ticker'].iloc[0]
@@ -304,9 +304,63 @@ def implement_stochastic(df, k_window=14, d_window=3, toPlot=False, stop_loss_pe
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
+
+#-------------------------------------------------------ICHIMOKU STRATEGY------------------------------------------------------------------------------------------------------
+def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, stop_loss_percentage, toPlot=False):
+    """
+    Strategy to buy when the price is above the cloud and the Tenkan-sen crosses above the Kijun-sen,
+    and sell when the price falls below the cloud and the Tenkan-sen crosses below the Kijun-sen or hits the stop-loss level.
+    """
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+    df = ndct.calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(df)):
+        # Entry Condition for Ichimoku Cloud
+        if not isHoldingStock:
+            if df['close'].iloc[i] > df['senkou_span_a'].iloc[i] and df['close'].iloc[i] > df['senkou_span_b'].iloc[i] and \
+               df['tenkan_sen'].iloc[i] > df['kijun_sen'].iloc[i] and df['tenkan_sen'].iloc[i - 1] <= df['kijun_sen'].iloc[i - 1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Conditions for Ichimoku Cloud
+            if (df['close'].iloc[i] < df['senkou_span_a'].iloc[i] or df['close'].iloc[i] < df['senkou_span_b'].iloc[i] and \
+                df['tenkan_sen'].iloc[i] < df['kijun_sen'].iloc[i] and df['tenkan_sen'].iloc[i - 1] >= df['kijun_sen'].iloc[i - 1]) or \
+                (df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to DataFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 # ------------------------------------------Fibonacci Retracement-------------------------------------------------------------------
 
-def implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
+def  implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
     """Uses Fibonacci retracement levels for buy/sell signals with a stop-loss condition"""
 
     ticker = df['ticker'].iloc[0]

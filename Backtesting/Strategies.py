@@ -634,3 +634,114 @@ def implement_vpt(df, stop_loss_percentage, toPlot=False):
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+
+#---------------------------------------CHAIKIN MONEY FLOW--------------------------------------------------------------------------
+import Backtesting.Indicators as ndct
+import Backtesting.Backtest as sb_bt
+import plotly.io as pio
+from Backtesting import utils as btutil
+
+def implement_cmf(df, stop_loss_percentage, toPlot=False):
+    """Implement the CMF (Chaikin Money Flow) strategy on the given DataFrame."""
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate CMF and add it to DataFrame
+    ndct.calculate_cmf(df, fig)  # Calculate CMF within this function
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when CMF is positive and rising"""
+            if df['CMF'].iloc[i] > 0 and df['CMF'].iloc[i] > df['CMF'].iloc[i - 1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on CMF and Stop-loss
+            """Sell when CMF is negative and falling, or stop loss condition is met"""
+            if df['CMF'].iloc[i] < 0 or df['CMF'].iloc[i] < df['CMF'].iloc[i - 1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    # Calculate backtest results
+    pnl_res = sb_bt.simpleBacktest(df)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+#--------------------------------------------------------HEIKIN ASHI STRATEGY-------------------------------------------------------------------
+def implement_heikin_ashi(df, stop_loss_percentage, toPlot=False):
+    """Implements the Heikin-Ashi strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate Heikin-Ashi candlesticks
+    ha_data = ndct.calculate_heikin_ashi(df, fig)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(ha_data)):
+        if not isHoldingStock:
+            if ha_data['HA_Close'].iloc[i] > ha_data['HA_Open'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+        else:
+            if ha_data['HA_Close'].iloc[i] < ha_data['HA_Open'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+
+
+

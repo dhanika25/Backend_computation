@@ -313,3 +313,67 @@ def calculate_vpt(data, fig=None):
     if fig:
         # Add VPT line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VPT'], mode='lines', name='VPT'), row=3, col=1)
+
+
+#CHAIKIN MONEY FLOW(CMF)
+def calculate_cmf(data, fig=None):
+    """Calculate the Chaikin Money Flow (CMF) and optionally plot it."""
+    adl = []
+    for i in range(len(data)):
+        adl_value = ((data['close'].iloc[i] - data['low'].iloc[i]) - (data['high'].iloc[i] - data['close'].iloc[i])) / (data['high'].iloc[i] - data['low'].iloc[i]) * data['Volume'].iloc[i]
+        adl.append(adl_value)
+    
+    data['ADL'] = adl
+    data['MF_Multiplier'] = ((data['close'] - data['low']) - (data['high'] - data['close'])) / (data['high'] - data['low'])
+    data['MF_Volume'] = data['MF_Multiplier'] * data['Volume']
+    
+    cmf_values = []
+    sum_mf_volume = 0
+    sum_volume = 0
+    
+    for i in range(len(data)):
+        sum_mf_volume += data['MF_Volume'].iloc[i]
+        sum_volume += data['Volume'].iloc[i]
+        
+        if i >= 21:
+            sum_volume_period = sum(data['Volume'].iloc[max(0, i-20):i+1])
+            if sum_volume_period != 0:
+                cmf = sum(data['MF_Volume'].iloc[max(0, i-20):i+1]) / (sum_volume_period + 1e-8)  # Adding a small epsilon to avoid division by zero
+            else:
+                cmf = 0  # Handle division by zero gracefully
+            cmf_values.append(cmf)
+        else:
+            cmf_values.append(0)
+    
+    data['CMF'] = cmf_values
+    
+    if fig:
+        # Add CMF line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['CMF'], mode='lines', name='CMF'), row=3, col=1)
+
+
+#Heikin Ashi Strategy
+import pandas as pd
+import plotly.graph_objects as go
+
+def calculate_heikin_ashi(data, fig=None):
+    """Calculate the Heikin-Ashi candlesticks and optionally plot them."""
+    ha_data = data.copy()
+
+    ha_data['HA_Close'] = (data['Open'] + data['high'] + data['low'] + data['close']) / 4
+    ha_data['HA_Open'] = (ha_data['Open'].shift(1) + ha_data['close'].shift(1)) / 2
+    ha_data['HA_Open'].iloc[0] = (data['Open'].iloc[0] + data['close'].iloc[0]) / 2
+    ha_data['HA_High'] = ha_data[['high', 'HA_Open', 'HA_Close']].max(axis=1)
+    ha_data['HA_Low'] = ha_data[['low', 'HA_Open', 'HA_Close']].min(axis=1)
+
+    if fig:
+        # Add Heikin-Ashi candlesticks to the third subplot
+        fig.add_trace(go.Candlestick(x=ha_data['Date'],
+                                     open=ha_data['HA_Open'],
+                                     high=ha_data['HA_High'],
+                                     low=ha_data['HA_Low'],
+                                     close=ha_data['HA_Close'],
+                                     name='Heikin-Ashi'), row=3, col=1)
+
+    return ha_data
+

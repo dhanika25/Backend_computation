@@ -2,6 +2,8 @@ import plotly.graph_objects as go
 import random
 import pandas as pd
 
+import pandas as pd
+
 # from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA_' + str(n)] = df['close'].rolling(window=n).mean()

@@ -1,8 +1,9 @@
 import plotly.graph_objects as go
 import random
 import pandas as pd
+import numpy as np
 
-import pandas as pd
+# import pandas as pd
 
 # from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
@@ -281,6 +282,65 @@ def find_and_plot_candlestick_patterns(data, fig=None):
                     ),
                     name=pattern.capitalize()
                 ),
-                row=1, col=1
+                row=3, col=1
             )
-    return data,fig
+    
+# HEAD AND SHOULDER
+def calculate_head_and_shoulders(data, fig=None):
+    # Identifying peaks and troughs
+    data['peak'] = (data['close'] > data['close'].shift(1)) & (data['close'] > data['close'].shift(-1))
+    data['trough'] = (data['close'] < data['close'].shift(1)) & (data['close'] < data['close'].shift(-1))
+    
+    peaks = data[data['peak']]
+    troughs = data[data['trough']]
+    
+    shoulders = []
+    head = None
+    neckline = None
+    
+    # Detect Head and Shoulders pattern
+    for i in range(1, len(peaks) - 1):
+        if peaks['close'].iloc[i-1] < peaks['close'].iloc[i] and peaks['close'].iloc[i+1] < peaks['close'].iloc[i]:
+            head = peaks.iloc[i]
+            shoulders.append((peaks.iloc[i-1], peaks.iloc[i+1]))
+            break
+    
+    if head is not None:
+        for i in range(len(troughs) - 1):
+            if troughs['Date'].iloc[i] < head['Date'] and troughs['Date'].iloc[i+1] > head['Date']:
+                neckline = (troughs.iloc[i], troughs.iloc[i+1])
+                break
+    
+    # Plotting if fig is provided
+    if fig and head is not None and neckline is not None:
+        fig.add_trace(go.Scatter(x=[shoulders[0][0]['Date'], head['Date'], shoulders[0][1]['Date']],
+                                 y=[shoulders[0][0]['close'], head['close'], shoulders[0][1]['close']],
+                                 mode='lines+markers', name='Head and Shoulders'), row=3, col=1)
+        
+        fig.add_trace(go.Scatter(x=[neckline[0]['Date'], neckline[1]['Date']],
+                                 y=[neckline[0]['close'], neckline[1]['close']],
+                                 mode='lines', name='Neckline'), row=3, col=1)
+    
+    return data, neckline
+
+# Double Top/Bottom
+
+def detect_double_top_bottom(data, fig=None):
+    data['double_top'] = [float('nan')] * len(data)
+    data['double_bottom'] = [float('nan')] * len(data)
+
+    # Assuming a simple approach to detect double tops/bottoms
+    peaks = (data['high'] > data['high'].shift(1)) & (data['high'] > data['high'].shift(-1))
+    troughs = (data['low'] < data['low'].shift(1)) & (data['low'] < data['low'].shift(-1))
+
+    for i in range(1, len(data) - 1):
+        if peaks[i] and data['high'][i] >= data['high'][i-1] and data['high'][i] >= data['high'][i+1]:
+            data['double_top'][i] = data['high'][i]
+        elif troughs[i] and data['low'][i] <= data['low'][i-1] and data['low'][i] <= data['low'][i+1]:
+            data['double_bottom'][i] = data['low'][i]
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['double_top'], mode='markers', name='Double Top', marker=dict(color='blue', symbol='triangle-up')), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['double_bottom'], mode='markers', name='Double Bottom', marker=dict(color='black', symbol='triangle-down')), row=1, col=1)
+
+    return data

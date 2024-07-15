@@ -358,6 +358,64 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+#------------------------------------------------OBV STRATEGY-----------------------------------------------------------------------------------
+def implement_obv(df, stop_loss_percentage, toPlot=False):
+    """Implements the OBV strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Ensure 'volume' column is present
+    if 'Volume' not in df.columns:
+        raise KeyError("The DataFrame does not contain a 'volume' column.")
+    
+    # Calculate OBV
+    ndct.calculate_obv(df)  # Calculate OBV within this function
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
+    isHoldingStock = False  # Boolean to check if holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when OBV rises with the price"""
+            if df['OBV'].iloc[i] > df['OBV'].iloc[i-1] and df['close'].iloc[i] > df['close'].iloc[i-1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on OBV and Stop-loss
+            """Sell when OBV falls with the price or close price is less than stop-loss line"""
+            if df['OBV'].iloc[i] < df['OBV'].iloc[i-1] or df['close'].iloc[i] < df['close'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to DataFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    # Add OBV to the plot if required
+    ndct.calculate_obv(df, fig)
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 # ------------------------------------------Fibonacci Retracement-------------------------------------------------------------------
 
 def  implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
@@ -452,10 +510,12 @@ def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
         sell_signals[i] = float('nan')
         triggers[i] = 'H'
 
+    # Assign lists to DataFrame columns
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
+  
     ndct.calculate_adx_and_add_trace(df, period, fig)  # Trace the ADX graph
 
     pnl_res = sb_bt.simpleBacktest(df)
@@ -516,40 +576,48 @@ def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_per
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
-#-------------------------------------------------Candelstick Patterns-------------------------------------------------------------
-def implement_candlestick_strategy(df, toPlot=False, stop_loss_percentage=0.1):
-    """Analyzes formations such as doji, hammer, and engulfing"""
-    
+
+#-----------------------------------------VPT STRATEGY-----------------------------------------------------------------------------------
+def implement_vpt(df, stop_loss_percentage, toPlot=False):
+    """Implements the VPT strategy with stop-loss."""
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    ndct.find_and_plot_candlestick_patterns(df)
+    # Ensure 'volume' column is present
+    if 'Volume' not in df.columns:
+        raise KeyError("The DataFrame does not contain a 'volume' column.")
+    
+    # Calculate VPT
+    ndct.calculate_vpt(df, fig)  # Calculate VPT within this function
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
-    isHoldingStock = False
-    buy_price = 0
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
+    isHoldingStock = False  # Boolean to check if holding stock
+    buy_price = 0  # Track the price at which the stock was bought
 
     for i in range(1, len(df)):
         if not isHoldingStock:
-            # Entry Conditions: Bullish Patterns
-            if df['candlestick_pattern'].iloc[i] in ['hammer', 'bullish_engulfing']:
+            # Entry Condition
+            """Buy when VPT is rising with increasing volume"""
+            if df['VPT'].iloc[i] > df['VPT'].iloc[i-1] and df['Volume'].iloc[i] > df['Volume'].iloc[i-1]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
                 isHoldingStock = True
                 buy_price = df['close'].iloc[i]
                 continue
+
         else:
-            # Exit Conditions: Bearish Patterns and Stop-Loss
-            if df['candlestick_pattern'].iloc[i] in ['shooting_star', 'bearish_engulfing'] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            # Exit Condition based on VPT and Stop-loss
+            """Sell when VPT is falling with decreasing volume or close price is less than stop-loss line"""
+            if df['VPT'].iloc[i] < df['VPT'].iloc[i-1] or df['Volume'].iloc[i] < df['Volume'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
                 isHoldingStock = False
                 continue
-        
+
         buy_signals[i] = float('nan')
         sell_signals[i] = float('nan')
         triggers[i] = 'H'
@@ -559,26 +627,29 @@ def implement_candlestick_strategy(df, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.find_and_plot_candlestick_patterns(df,fig)
-    pnl_res = sb_bt.simpleBacktest(df)
+    ndct.calculate_vpt(df, fig)
 
+    pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    
     return pnl_res
 
-# --------------------------------------------------Head and Shoulder---------------------------------------------------------------
-def implement_head_and_shoulders(df, toPlot=False, stop_loss_percentage=0.1):
-    
-    """Identify Head and Shoulders patterns and make buy/sell decisions
-       based on neckline breaks."""
+
+#---------------------------------------CHAIKIN MONEY FLOW--------------------------------------------------------------------------
+import Backtesting.Indicators as ndct
+import Backtesting.Backtest as sb_bt
+import plotly.io as pio
+from Backtesting import utils as btutil
+
+def implement_cmf(df, stop_loss_percentage, toPlot=False):
+    """Implement the CMF (Chaikin Money Flow) strategy on the given DataFrame."""
     
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    # Calculate Head and Shoulders pattern
-    df, neckline = ndct.calculate_head_and_shoulders(df, fig)
+    # Calculate CMF and add it to DataFrame
+    ndct.calculate_cmf(df, fig)  # Calculate CMF within this function
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -586,69 +657,11 @@ def implement_head_and_shoulders(df, toPlot=False, stop_loss_percentage=0.1):
     isHoldingStock = False
     buy_price = 0
 
-    # Make sure neckline_level is not None
-    if neckline is not None:
-        neckline_level = (neckline[0]['close'] + neckline[1]['close']) / 2
-    else:
-        neckline_level = None
-
-    for i in range(1, len(df)):
-        if isHoldingStock:
-            # Exit condition
-            if neckline_level is not None and (df['close'].iloc[i] < neckline_level or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                sell_signals[i] = df['close'].iloc[i]
-                isHoldingStock = False
-                triggers[i] = 'S'
-            else:
-                sell_signals[i] = float('nan')
-                triggers[i] = 'H'
-        else:
-            # Entry condition
-            if neckline_level is not None and df['close'].iloc[i] > neckline_level:
-                buy_signals[i] = df['close'].iloc[i]
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                triggers[i] = 'B'
-            else:
-                buy_signals[i] = float('nan')
-                triggers[i] = 'H'
-
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res = sb_bt.simpleBacktest(df)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    else:
-        pnl_res = sb_bt.simpleBacktest(df)
-
-    return pnl_res
-
-# ---------------------------------------------------Double Top/Down----------------------------------------------------------------
-def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
-    
-    """Implements Double Top/Bottom strategy"""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Detect Double Top/Bottom within this function
-    df = ndct.detect_double_top_bottom(df)
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
-    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
     for i in range(1, len(df)):
         if not isHoldingStock:
             # Entry Condition
-            """Buy when the price breaks above the peak of a double bottom pattern"""
-
-            if pd.notna(df['double_bottom'].iloc[i]) and df['close'].iloc[i] > df['double_bottom'].iloc[i]:
+            """Buy when CMF is positive and rising"""
+            if df['CMF'].iloc[i] > 0 and df['CMF'].iloc[i] > df['CMF'].iloc[i - 1]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
@@ -657,12 +670,9 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
                 continue
 
         else:
-            # Exit Condition based on Double Top and Stop-loss
-            """Sell when the price breaks below the trough of a double top pattern or
-            close price is less than stop-loss line"""
-
-            if pd.notna(df['double_top'].iloc[i]) and df['close'].iloc[i] < df['double_top'].iloc[i] or \
-               df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            # Exit Condition based on CMF and Stop-loss
+            """Sell when CMF is negative and falling, or stop loss condition is met"""
+            if df['CMF'].iloc[i] < 0 or df['CMF'].iloc[i] < df['CMF'].iloc[i - 1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
@@ -673,15 +683,65 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
         sell_signals[i] = float('nan')
         triggers[i] = 'H'
 
-    # Assign lists to dfFrame columns
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.detect_double_top_bottom(df, fig) # Draws the Double Top/Bottom on the graph
+    # Calculate backtest results
+    pnl_res = sb_bt.simpleBacktest(df)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+#--------------------------------------------------------HEIKIN ASHI STRATEGY-------------------------------------------------------------------
+def implement_heikin_ashi(df, stop_loss_percentage, toPlot=False):
+    """Implements the Heikin-Ashi strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate Heikin-Ashi candlesticks
+    ha_data = ndct.calculate_heikin_ashi(df, fig)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(ha_data)):
+        if not isHoldingStock:
+            if ha_data['HA_Close'].iloc[i] > ha_data['HA_Open'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+        else:
+            if ha_data['HA_Close'].iloc[i] < ha_data['HA_Open'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
+
+

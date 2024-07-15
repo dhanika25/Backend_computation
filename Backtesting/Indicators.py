@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 import random
-from ta.momentum import RSIIndicator
+# from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA_' + str(n)] = df['close'].rolling(window=n).mean()
     if fig:
@@ -82,3 +82,17 @@ def calculate_RSI(data, window=14,fig=None):
         )
     #return data
         
+# Stochastic Oscillator
+def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,fig=None):
+    # Calculate %K
+    data[f'lowest_flow_{k_window}_{d_window}'] = data['low'].rolling(window=k_window).min()
+    data[f'highest_hfigh_{k_window}_{d_window}'] = data['high'].rolling(window=k_window).max()
+    data[f'%K_{k_window}_{d_window}'] = 100 * ((data['close'] - data[f'lowest_flow_{k_window}_{d_window}']) / (data[f'highest_hfigh_{k_window}_{d_window}'] - data[f'lowest_flow_{k_window}_{d_window}']))
+    
+    # Calculate %D
+    data[f'%D_{k_window}_{d_window}'] = data[f'%K_{k_window}_{d_window}'].rolling(window=d_window).mean()
+    if fig:
+        # Add %K line to the subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%K_{k_window}_{d_window}'], mode='lines', name=f'%K_{k_window}_{d_window}'), row=3, col=1)
+        # Add %D line to the subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%D_{k_window}_{d_window}'], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)

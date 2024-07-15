@@ -247,3 +247,59 @@ def implement_RSI(data, overbought_threshold=70, oversold_threshold=30,toPlot=Fa
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
+# -------------------------------------------------Stochastic Oscillator------------------------------------------------------------
+
+def implement_stochastic(df, k_window=14, d_window=3, toPlot=False, stop_loss_percentage=0.1):
+    """Implements Stochastic Oscillator strategy."""
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+    
+    # Calculate Stochastic Oscillator
+    ndct.calculate_and_add_trace_stochastic_oscillator(df, k_window, d_window)
+    
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
+    isHoldingStock = False  # False means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+    
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when %K crosses above 20 from below."""
+            if df[f'%K_{k_window}_{d_window}'].iloc[i] > 20 and df[f'%K_{k_window}_{d_window}'].iloc[i-1] <= 20:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+        
+        else:
+            # Exit Condition
+            """Sell when %K crosses below 80 from above, or
+            close price is less than stop-loss line."""
+            if df[f'%K_{k_window}_{d_window}'].iloc[i] < 80 and df[f'%K_{k_window}_{d_window}'].iloc[i-1] >= 80 or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+        
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+    
+    # Assign lists to dataframe columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+    
+    ndct.calculate_and_add_trace_stochastic_oscillator(df,k_window, d_window, fig)  # Add stochastic trace to the graph
+    
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res

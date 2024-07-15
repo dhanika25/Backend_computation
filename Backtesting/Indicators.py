@@ -3,6 +3,7 @@ import random
 import pandas as pd
 import numpy as np
 
+
 # import pandas as pd
 
 # from ta.momentum import RSIIndicator
@@ -437,3 +438,68 @@ def calculate_heikin_ashi(data, fig=None):
 
     return ha_data
 
+#Flags and Pennants
+
+def calculate_flag_and_add_trace(data, fig=None):
+    data['flag_top'] = np.nan
+    data['flag_bottom'] = np.nan
+
+    min_periods = 5  # Number of periods to consider for flag/pennant identification
+    
+    for i in range(min_periods, len(data) - min_periods):
+        # Identify potential flagpole
+        if data['close'][i] > data['close'][i-1] * 1.05:  # 5% price increase as a placeholder
+            flagpole_start = i-1
+            flagpole_end = i
+            flag_top = data['close'][i]
+            flag_bottom = data['close'][flagpole_start]
+            
+            # Check for consolidation (flag/pennant formation)
+            for j in range(i + 1, len(data)):
+                if data['close'][j] < flag_top and data['close'][j] > flag_bottom:
+                    continue
+                else:
+                    if data['close'][j] > flag_top:  # Breakout to the upside
+                        data.loc[flagpole_start:j, 'flag_top'] = flag_top
+                        data.loc[flagpole_start:j, 'flag_bottom'] = flag_bottom
+                        break
+                    else:
+                        break
+    
+    data['flag_top'] = data['flag_top'].interpolate()
+    data['flag_bottom'] = data['flag_bottom'].interpolate()
+    
+    if fig:
+        # Add flag formation to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_top'], mode='lines', name='Flag Top'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_bottom'], mode='lines', name='Flag Bottom'), row=3, col=1)
+    
+    return data
+
+# Triangles
+
+def calculate_triangle_and_add_trace(data, fig=None):
+    data['upper_trendline'] = np.nan
+    data['lower_trendline'] = np.nan
+
+    min_periods = 5  # Number of periods to consider for local minima and maxima
+    
+    for i in range(min_periods, len(data) - min_periods):
+        local_min = data['close'][i-min_periods:i+min_periods].min()
+        local_max = data['close'][i-min_periods:i+min_periods].max()
+        
+        if data['close'][i] == local_min:
+            data['lower_trendline'][i] = local_min
+        if data['close'][i] == local_max:
+            data['upper_trendline'][i] = local_max
+
+    data['lower_trendline'] = data['lower_trendline'].interpolate()
+    data['upper_trendline'] = data['upper_trendline'].interpolate()
+    
+    if fig:
+        # Add upper trendline to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_trendline'], mode='lines', name='Upper Trendline'), row=3, col=1)
+        # Add lower trendline to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_trendline'], mode='lines', name='Lower Trendline'), row=3, col=1)
+    
+    return data

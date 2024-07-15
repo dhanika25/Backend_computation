@@ -913,4 +913,108 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
+# --------------------------------------------------------Flags and Pennants-------------------------------------------------------
+def implement_flags_pennants(df, toPlot=False, stop_loss_percentage=0.1):
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
 
+    # Calculate flag patterns
+    df = ndct.calculate_flag_and_add_trace(df, fig)  
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
+    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when the close price breaks above the flag formation"""
+            if df['close'].iloc[i] > df['flag_top'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on breakout below the flag formation or stop-loss
+            """Sell when the close price breaks below the flag formation or hits stop-loss"""
+            if df['close'].iloc[i] < df['flag_bottom'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to dfFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+
+# ----------------------------------------------------Triangles-------------------------------------------------------------------
+def implement_triangle_strategy(df, toPlot=False, stop_loss_percentage=0.1):
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate triangle patterns
+    df = ndct.calculate_triangle_and_add_trace(df, fig)  
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
+    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when the close price breaks above the upper trendline"""
+            if df['close'].iloc[i] > df['upper_trendline'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on breakout below the lower trendline or stop-loss
+            """Sell when the close price breaks below the lower trendline or hits stop-loss"""
+            if df['close'].iloc[i] < df['lower_trendline'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    # Assign lists to dfFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res

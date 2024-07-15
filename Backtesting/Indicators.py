@@ -1,5 +1,7 @@
 import plotly.graph_objects as go
 import random
+import pandas as pd
+
 # from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA_' + str(n)] = df['close'].rolling(window=n).mean()
@@ -12,10 +14,12 @@ def ma(n, df, fig=None):
 #BOLLINGER STRATEGY
 def rolling_std(df, window):
     df[f'rolling_std_{window}'] = df['close'].rolling(window=window).std()
-    
+
+def ma(window, df):
+    df[f'MA_{window}'] = df['close'].rolling(window=window).mean()
 
 def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
-    df = ma(window, df)
+    ma(window, df)
     rolling_std(df, window)
     
     upper_band = f'upper_band_{window}_{num_std_dev}'
@@ -23,12 +27,16 @@ def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
     band_width = f'band_width_{window}_{num_std_dev}'
 
     df[upper_band] = df[f'MA_{window}'] + (df[f'rolling_std_{window}'] * num_std_dev)
-    df[lower_band] = df[f'MA_{window}'] - (df[f'rolling_std_{window}'] * num_std_dev)
+    df[lower_band] = df[f'MA_{window}'] - df[f'rolling_std_{window}'] * num_std_dev
     df[band_width] = df[upper_band] - df[lower_band]
 
     if fig:
-        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name=upper_band, line=dict(color='red')))
-        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name=lower_band, line=dict(color='blue')))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name='Upper Band', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name='Lower Band', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[f'MA_{window}'], mode='lines', name='Moving Average', line=dict(color='green')), row=3, col=1)
+    
+    return df
+
     
 
 
@@ -63,8 +71,8 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
 #RSI Strategy
 
 def calculate_RSI(data, window=14,fig=None):
-    rsi = RSIIndicator(close=data['close'], window=window)
-    data['RSI'] = rsi.rsi()
+    #rsi = RSIIndicator(close=data['close'], window=window)
+    #data['RSI'] = rsi.rsi()
     if fig:
             # Add RSI indicator to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['RSI'], mode='lines', name='RSI'), row=3, col=1)
@@ -96,3 +104,33 @@ def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%K_{k_window}_{d_window}'], mode='lines', name=f'%K_{k_window}_{d_window}'), row=3, col=1)
         # Add %D line to the subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%D_{k_window}_{d_window}'], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)
+
+
+#ICHIMOKU
+def calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig=None):
+    # Tenkan-sen (Conversion Line)
+    df['tenkan_sen'] = (df['high'].rolling(window=tenkan_sen_period).max() + df['low'].rolling(window=tenkan_sen_period).min()) / 2
+    
+    # Kijun-sen (Base Line)
+    df['kijun_sen'] = (df['high'].rolling(window=kijun_sen_period).max() + df['low'].rolling(window=kijun_sen_period).min()) / 2
+    
+    # Senkou Span A (Leading Span A)
+    df['senkou_span_a'] = ((df['tenkan_sen'] + df['kijun_sen']) / 2).shift(senkou_shift)
+    
+    # Senkou Span B (Leading Span B)
+    df['senkou_span_b'] = (df['high'].rolling(window=senkou_span_b_period).max() + df['low'].rolling(window=senkou_span_b_period).min()) / 2
+    df['senkou_span_b'] = df['senkou_span_b'].shift(senkou_shift)
+    
+    # Chikou Span (Lagging Span)
+    df['chikou_span'] = df['close'].shift(-senkou_shift)
+    
+    # Plotting if fig is provided
+    if fig:
+        # Create a subplot for Ichimoku Cloud
+        fig.add_trace(go.Scatter(x=df.index, y=df['tenkan_sen'], mode='lines', name='Tenkan-sen', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['kijun_sen'], mode='lines', name='Kijun-sen', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_a'], mode='lines', name='Senkou Span A', line=dict(color='green')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_b'], mode='lines', name='Senkou Span B', line=dict(color='orange')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['chikou_span'], mode='lines', name='Chikou Span', line=dict(color='purple')), row=3, col=1)
+
+    return df

@@ -912,5 +912,95 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+#-----------------------------------------------------ELLIOT WAVE STRATEGY-----------------------------------------------------------------------
+def implement_elliott_wave(df, stop_loss_percentage, toPlot=False):
+    """Implements the Elliott Wave strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
 
+    # Identify Elliott Wave patterns
+    wave_data = ndct.identify_elliott_wave_patterns(df, fig)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(wave_data)):
+        if not isHoldingStock:
+            if wave_data['Wave'].iloc[i] == 'Impulse':
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+        else:
+            if wave_data['Wave'].iloc[i] == 'Corrective' or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+
+#-----------------------------------DONCHIAN CHANNEL------------------------------------------------------------------------------------------
+def implement_donchian_channels(df, period, stop_loss_percentage, toPlot=False):
+    """Implements the Donchian Channels strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate Donchian Channels
+    dc_data = ndct.calculate_donchian_channels(df, period, fig)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(period, len(dc_data)):
+        if not isHoldingStock:
+            if df['close'].iloc[i] > dc_data['Upper_Channel'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+        else:
+            if df['close'].iloc[i] < dc_data['Lower_Channel'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 

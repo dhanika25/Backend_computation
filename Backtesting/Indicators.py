@@ -437,3 +437,46 @@ def calculate_heikin_ashi(data, fig=None):
 
     return ha_data
 
+#ELLIOT WAVE STRATEGY
+def identify_elliott_wave_patterns(data, fig=None):
+    """
+    Identify Elliott Wave patterns and optionally plot them.
+    """
+    wave_data = data.copy()
+
+    # Placeholder for actual wave pattern identification logic.
+    wave_data['Wave'] = None  # Initialize with None
+
+    # Simplified pattern identification (for demonstration)
+    for i in range(1, len(wave_data)-1):
+        if wave_data['close'].iloc[i] > wave_data['close'].iloc[i-1] and wave_data['close'].iloc[i] > wave_data['close'].iloc[i+1]:
+            wave_data['Wave'].iloc[i] = 'Impulse'
+        elif wave_data['close'].iloc[i] < wave_data['close'].iloc[i-1] and wave_data['close'].iloc[i] < wave_data['close'].iloc[i+1]:
+            wave_data['Wave'].iloc[i] = 'Corrective'
+    
+    if fig:
+        # Add wave patterns to the third subplot
+        impulse_wave = wave_data[wave_data['Wave'] == 'Impulse']
+        corrective_wave = wave_data[wave_data['Wave'] == 'Corrective']
+        
+        fig.add_trace(go.Scatter(x=impulse_wave['Date'], y=impulse_wave['close'], mode='markers+lines', name='Impulse Wave', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=corrective_wave['Date'], y=corrective_wave['close'], mode='markers+lines', name='Corrective Wave', line=dict(color='red')), row=3, col=1)
+    
+    return wave_data
+
+#DONCHIAN CHANNEL STARTEGY
+def calculate_donchian_channels(data, period, fig=None):
+    """
+    Calculate Donchian Channels and optionally plot them.
+    """
+    data['Upper_Channel'] = data['high'].rolling(window=period).max()
+    data['Lower_Channel'] = data['low'].rolling(window=period).min()
+
+    if fig:
+        # Add Donchian Channels to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Channel'], mode='lines', name='Upper Channel', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Channel'], mode='lines', name='Lower Channel', line=dict(color='red')), row=3, col=1)
+
+    return data
+
+

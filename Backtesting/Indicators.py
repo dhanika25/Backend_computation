@@ -2,6 +2,8 @@ import plotly.graph_objects as go
 import random
 import pandas as pd
 
+import pandas as pd
+
 # from ta.momentum import RSIIndicator
 def ma(n, df, fig=None):
     df['MA_' + str(n)] = df['close'].rolling(window=n).mean()
@@ -242,3 +244,60 @@ def calculate_obv(data, fig=None):
     if fig:
         # Add OBV line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['OBV'], mode='lines', name='OBV'), row=3, col=1)
+
+# Candlestick Patterns
+
+def find_and_plot_candlestick_patterns(data, fig=None):
+    required_columns = ['Open', 'close', 'high', 'low']
+    
+    # Check if all required columns are in the DataFrame
+    for col in required_columns:
+        if col not in data.columns:
+            raise KeyError(f"'{col}' column is missing from the DataFrame")
+    
+    data['candlestick_pattern'] = None
+    
+    for i in range(1, len(data)):
+        open_price = data['Open'].iloc[i]
+        close_price = data['close'].iloc[i]
+        high_price = data['high'].iloc[i]
+        low_price = data['low'].iloc[i]
+        
+        if abs(open_price - close_price) < ((high_price - low_price) * 0.1):
+            data.at[i, 'candlestick_pattern'] = 'doji'
+        elif open_price > close_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (low_price == min(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'hammer'
+        elif close_price > open_price and data['close'].iloc[i-1] < data['Open'].iloc[i-1] and (close_price > data['Open'].iloc[i-1]) and (open_price < data['close'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bullish_engulfing'
+        elif open_price > close_price and data['close'].iloc[i-1] > data['Open'].iloc[i-1] and (open_price > data['close'].iloc[i-1]) and (close_price < data['Open'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bearish_engulfing'
+        elif close_price < open_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (high_price == max(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'shooting_star'
+    
+    if fig:
+        patterns = ['doji', 'hammer', 'bullish_engulfing', 'bearish_engulfing', 'shooting_star']
+        colors = {
+            'doji': 'yellow',
+            'hammer': 'green',
+            'bullish_engulfing': 'blue',
+            'bearish_engulfing': 'red',
+            'shooting_star': 'purple'
+        }
+
+        for pattern in patterns:
+            pattern_data = data[data['candlestick_pattern'] == pattern]
+            fig.add_trace(
+                go.Scatter(
+                    x=pattern_data['Date'],
+                    y=pattern_data['close'],
+                    mode='markers',
+                    marker=dict(
+                        size=10,
+                        color=colors[pattern],
+                        symbol='circle'
+                    ),
+                    name=pattern.capitalize()
+                ),
+                row=1, col=1
+            )
+    return data,fig

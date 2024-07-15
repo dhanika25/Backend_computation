@@ -314,6 +314,15 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
     df = ndct.calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig)
+# ------------------------------------------Fibonacci Retracement-------------------------------------------------------------------
+
+def implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
+    """Uses Fibonacci retracement levels for buy/sell signals with a stop-loss condition"""
+
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    levels = ndct.calculate_and_add_fibonacci_levels(df, fig)
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -326,6 +335,61 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
         if not isHoldingStock:
             if df['close'].iloc[i] > df['senkou_span_a'].iloc[i] and df['close'].iloc[i] > df['senkou_span_b'].iloc[i] and \
                df['tenkan_sen'].iloc[i] > df['kijun_sen'].iloc[i] and df['tenkan_sen'].iloc[i - 1] <= df['kijun_sen'].iloc[i - 1]:
+        close_price = df['close'].iloc[i]
+
+        if not isHoldingStock:
+            # Entry Conditions: Buy at Fibonacci retracement levels
+            if (close_price <= levels['61.8%'] or close_price <= levels['50%'] or close_price <= levels['38.2%']):
+                buy_signals[i] = close_price
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = close_price
+                continue
+        else:
+            # Exit Conditions: Sell when price reaches the next Fibonacci level or stop-loss
+            if (close_price >= levels['23.6%'] or close_price <= buy_price * (1 - stop_loss_percentage)):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = close_price
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    pnl_res = sb_bt.simpleBacktest(df)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+        return pnl_res
+
+# ----------------------------------------------------ADX-------------------------------------------------------------------------
+
+def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+    
+    # Calculate ADX within this function
+    ndct.calculate_adx_and_add_trace(df, period)  
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            if (df['adx'].iloc[i] > 25 and 
+                df['+DI'].iloc[i] > df['-DI'].iloc[i]):
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
@@ -338,6 +402,10 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
             if (df['close'].iloc[i] < df['senkou_span_a'].iloc[i] or df['close'].iloc[i] < df['senkou_span_b'].iloc[i] and \
                 df['tenkan_sen'].iloc[i] < df['kijun_sen'].iloc[i] and df['tenkan_sen'].iloc[i - 1] >= df['kijun_sen'].iloc[i - 1]) or \
                 (df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
+            # Exit Condition based on ADX and Stop-loss
+            if (df['adx'].iloc[i] < 20 or 
+                df['-DI'].iloc[i] > df['+DI'].iloc[i] or 
+                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
@@ -352,6 +420,60 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
+
+    ndct.calculate_adx_and_add_trace(df, period, fig)  # Trace the ADX graph
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+
+# ---------------------------------------Parabolic SAR----------------------------------------------------------------------------
+
+def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_percentage=0.1):
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af)  # Calculate Parabolic SAR and add to plot if fig is provided
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(1, len(df)):
+        if not isHoldingStock:
+            # Entry Condition: Buy when the SAR is below the price
+            if df['parabolic_sar'].iloc[i] < df['close'].iloc[i]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition: Sell when the SAR is above the price or stop-loss
+            if (df['parabolic_sar'].iloc[i] > df['close'].iloc[i] or
+                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af, fig)
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:

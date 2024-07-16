@@ -800,3 +800,257 @@ def calculate_price_channels_and_add_trace(data, window, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
     return data
+
+#RVI Strategy
+import pandas as pd
+import plotly.graph_objs as go
+
+def calculate_RVI(data, window=10, fig=None):
+    close_open_diff = data['close'] - data['Open']
+    high_low_diff = data['high'] - data['low']
+    data['RVI'] = close_open_diff.rolling(window=window).mean() / high_low_diff.rolling(window=window).mean()
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['RVI'], mode='lines', name='RVI'), row=3, col=1)
+        fig.add_shape(
+            type="line", line=dict(color="black", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=0, x1=data['Date'].iloc[-1], y1=0,
+            row=3, col=1
+        )
+
+
+#Volume Oscillator
+
+
+def calculate_volume_oscillator(data, short_window=14, long_window=28, fig=None):
+    short_ma = data['Volume'].rolling(window=short_window).mean()
+    long_ma = data['Volume'].rolling(window=long_window).mean()
+    data['Volume_Oscillator'] = (short_ma - long_ma) / long_ma
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Volume_Oscillator'], mode='lines', name='Volume Oscillator'), row=3, col=1)
+
+
+
+#CMO Strategy
+
+
+def calculate_CMO(data, window=14, fig=None):
+    close_diff = data['close'].diff()
+    upward_changes = close_diff.clip(lower=0)
+    downward_changes = -close_diff.clip(upper=0)
+    
+    sum_upward = upward_changes.rolling(window=window).sum()
+    sum_downward = downward_changes.rolling(window=window).sum()
+
+    data['CMO'] = (sum_upward - sum_downward) / (sum_upward + sum_downward) * 100
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['CMO'], mode='lines', name='CMO'), row=3, col=1)
+        fig.add_shape(
+            type="line", line=dict(color="black", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=0, x1=data['Date'].iloc[-1], y1=0,
+            row=3, col=1
+        )
+
+
+#Aroon Strategy
+
+
+def calculate_aroon(data, window=25, fig=None):
+    data['Aroon Up'] = data['high'].rolling(window).apply(lambda x: (window - x.argmax()) / window * 100, raw=True)
+    data['Aroon Down'] = data['low'].rolling(window).apply(lambda x: (window - x.argmin()) / window * 100, raw=True)
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Aroon Up'], mode='lines', name='Aroon Up'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Aroon Down'], mode='lines', name='Aroon Down'), row=3, col=1)
+
+
+
+#Ultimate Oscillator
+
+
+def calculate_ultimate_oscillator(data, short_period=7, medium_period=14, long_period=28, fig=None):
+    min_low_or_prev_close = data[['low', 'close']].min(axis=1).shift(1)
+    true_range = data['high'].combine(min_low_or_prev_close, max) - data['low'].combine(min_low_or_prev_close, min)
+    buying_pressure = data['close'] - min_low_or_prev_close
+
+    avg_bp1 = buying_pressure.rolling(window=short_period).sum()
+    avg_tr1 = true_range.rolling(window=short_period).sum()
+
+    avg_bp2 = buying_pressure.rolling(window=medium_period).sum()
+    avg_tr2 = true_range.rolling(window=medium_period).sum()
+
+    avg_bp3 = buying_pressure.rolling(window=long_period).sum()
+    avg_tr3 = true_range.rolling(window=long_period).sum()
+
+    ultimate_oscillator = 100 * ((4 * (avg_bp1 / avg_tr1)) + (2 * (avg_bp2 / avg_tr2)) + (avg_bp3 / avg_tr3)) / (4 + 2 + 1)
+    data['Ultimate Oscillator'] = ultimate_oscillator
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Ultimate Oscillator'], mode='lines', name='Ultimate Oscillator'), row=3, col=1)
+        fig.add_shape(
+            type="line", line=dict(color="red", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=70, x1=data['Date'].iloc[-1], y1=70,
+            row=3, col=1
+        )
+        fig.add_shape(
+            type="line", line=dict(color="blue", width=1, dash="dash"),
+            x0=data['Date'].iloc[0], y0=30, x1=data['Date'].iloc[-1], y1=30,
+            row=3, col=1
+        )
+#Chandelier Exit Strategy
+
+
+def calculate_chandelier_exit(data, window=22, multiplier=3, fig=None):
+    high_max = data['high'].rolling(window=window).max()
+    low_min = data['low'].rolling(window=window).min()
+    atr = data['high'].combine(data['low'], lambda x, y: abs(x - y)).rolling(window=window).mean()
+
+    chandelier_exit_long = high_max - (atr * multiplier)
+    chandelier_exit_short = low_min + (atr * multiplier)
+
+    data['Chandelier Exit Long'] = chandelier_exit_long
+    data['Chandelier Exit Short'] = chandelier_exit_short
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Chandelier Exit Long'], mode='lines', name='Chandelier Exit Long'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Chandelier Exit Short'], mode='lines', name='Chandelier Exit Short'), row=3, col=1)
+
+
+#DMI Strategy
+
+def calculate_dmi(data, window=14, fig=None):
+    # Ensure data columns are correctly named and types are consistent
+    data['high'] = pd.to_numeric(data['high'])
+    data['low'] = pd.to_numeric(data['low'])
+    data['close'] = pd.to_numeric(data['close'])
+
+    high = pd.Series(data['high'])
+    low = pd.Series(data['low'])
+    close = pd.Series(data['close'])
+
+    # Calculate True Range (TR)
+    tr = np.maximum(np.maximum(high - low, abs(high - close.shift(1))), abs(low - close.shift(1)))
+
+    # Calculate Directional Movement (DM)
+    dm_plus = np.where((high - high.shift(1)) > (low.shift(1) - low), np.maximum(high - high.shift(1), 0), 0)
+    dm_minus = np.where((low.shift(1) - low) > (high - high.shift(1)), np.maximum(low.shift(1) - low, 0), 0)
+
+    # Convert to pandas Series
+    dm_plus = pd.Series(dm_plus)
+    dm_minus = pd.Series(dm_minus)
+    tr = pd.Series(tr)
+
+    # Smoothed versions of TR, DM+, and DM-
+    atr = tr.rolling(window=window).mean()
+    di_plus = (dm_plus.rolling(window=window).mean() / atr) * 100
+    di_minus = (dm_minus.rolling(window=window).mean() / atr) * 100
+
+    # Calculate Average Directional Index (ADX)
+    dx = 100 * np.abs((di_plus - di_minus) / (di_plus + di_minus))
+    adx = dx.rolling(window=window).mean()
+
+    data['+DI'] = di_plus
+    data['-DI'] = di_minus
+    data['ADX'] = adx
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['+DI'], mode='lines', name='+DI'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['-DI'], mode='lines', name='-DI'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['ADX'], mode='lines', name='ADX'), row=3, col=1)
+
+# ADL Strategy
+
+
+def calculate_ADL(data, fig=None):
+    # Ensure data columns are correctly named and types are consistent
+    data['high'] = pd.to_numeric(data['high'])
+    data['low'] = pd.to_numeric(data['low'])
+    data['close'] = pd.to_numeric(data['close'])
+    data['Volume'] = pd.to_numeric(data['Volume'])
+
+    high = pd.Series(data['high'])
+    low = pd.Series(data['low'])
+    close = pd.Series(data['close'])
+
+    # Calculate Money Flow Multiplier (MF Multiplier) and Money Flow Volume (MFV)
+    mf_mult = ((close - low) - (high - close)) / (high - low)
+    mf_vol = mf_mult * data['Volume']
+
+    # Accumulate the Money Flow Volume to get ADL
+    data['ADL'] = mf_vol.cumsum()
+
+    if fig:
+        # Plot ADL on the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['ADL'], mode='lines', name='ADL'), row=3, col=1)
+
+#klinger volume oscillator
+
+
+def calculate_kvo(data, fast_period=34, slow_period=55, signal_period=13, fig=None):
+    close = pd.to_numeric(data['close'])
+    volume = pd.to_numeric(data['Volume'])
+
+    # Calculate True Range (TR)
+    tr = np.abs(close - close.shift(1))
+
+    # Calculate Money Flow Volume (MFV)
+    mfv = close - (close.shift(1) + close.shift(-1)) / 2
+    mfv *= volume
+
+    # Calculate Fast and Slow EMAs of MFV
+    fast_emav = mfv.ewm(span=fast_period, min_periods=fast_period).mean()
+    slow_emav = mfv.ewm(span=slow_period, min_periods=slow_period).mean()
+
+    # Calculate Klinger Volume Oscillator (KVO)
+    kvo = fast_emav - slow_emav
+
+    # Calculate Signal Line
+    signal_line = kvo.ewm(span=signal_period, min_periods=signal_period).mean()
+
+    data['KVO'] = kvo
+    data['KVO Signal'] = signal_line
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['KVO'], mode='lines', name='KVO'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['KVO Signal'], mode='lines', name='KVO Signal'), row=3, col=1)
+
+# Elder Ray
+
+
+
+
+def calculate_elder_ray(data, window=13, fig=None):
+    # Ensure data columns are correctly named and types are consistent
+    data['high'] = pd.to_numeric(data['high'])
+    data['low'] = pd.to_numeric(data['low'])
+    data['close'] = pd.to_numeric(data['close'])
+
+    high = pd.Series(data['high'])
+    low = pd.Series(data['low'])
+    close = pd.Series(data['close'])
+
+    # Calculate Exponential Moving Average (EMA)
+    ema = close.ewm(span=window, min_periods=window).mean()
+
+    # Calculate Bull Power and Bear Power
+    bull_power = high - ema
+    bear_power = low - ema
+
+    # Add Bull Power and Bear Power to the DataFrame
+    data['Bull Power'] = bull_power
+    data['Bear Power'] = bear_power
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Bull Power'], mode='lines', name='Bull Power'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Bear Power'], mode='lines', name='Bear Power'), row=3, col=1)
+
+
+
+#Swing Index
+
+
+
+
+

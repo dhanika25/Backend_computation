@@ -2000,6 +2000,37 @@ def implement_elder_ray(data, toPlot=False):
 
 
 
+def implement_swing_index(data, toPlot=False):
+    # Calculate Swing Index
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+    ndct.calculate_swing_index_signal(data)
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+    # Example logic to generate buy/sell signals
+    data['Trigger'] = ''  # Placeholder for trigger signals
+
+    for i in range(1, len(data)):
+        if data['Swing Index'].iloc[i] > data['Swing Index'].iloc[i - 1]:
+            data.at[i, 'Trigger'] = 'B'  # Buy signal
+        elif data['Swing Index'].iloc[i] < data['Swing Index'].iloc[i - 1]:
+            data.at[i, 'Trigger'] = 'S'  # Sell signal
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+    # Plotting if required
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig) # Assuming you have a function to plot initial graph
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+
+
 
 
 

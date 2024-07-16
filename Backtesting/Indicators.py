@@ -1052,5 +1052,3 @@ def calculate_elder_ray(data, window=13, fig=None):
 
 
 
-
-

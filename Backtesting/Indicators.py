@@ -660,4 +660,143 @@ def calculate_vortex(data, n, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VI+'], mode='lines', name='VI+'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VI-'], mode='lines', name='VI-'), row=3, col=1)
 
+# Rate of Change
+def calculate_roc_and_add_trace(data, window, fig=None):
+    # Calculate ROC
+    roc_col = f'roc_{window}'
+    data[roc_col] = (data['close'].diff(window) / data['close'].shift(window)) * 100
+    
+    if fig:
+        # Add ROC line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[roc_col], mode='lines', name=f'ROC_{window}'), row=3, col=1)
 
+# Commodity Channel Index
+def calculate_cci_and_add_trace(data, window=20, fig=None):
+    # Calculate Typical Price
+    data['Typical_Price'] = (data['high'] + data['low'] + data['close']) / 3
+    
+    # Calculate the SMA of Typical Price
+    data[f'SMA_Typical_Price_{window}'] = data['Typical_Price'].rolling(window=window).mean()
+    
+    # Calculate the Mean Deviation
+    def mean_deviation(x):
+        return np.mean(np.abs(x - np.mean(x)))
+    
+    data['Mean_Deviation'] = data['Typical_Price'].rolling(window=window).apply(mean_deviation)
+    
+    # Calculate CCI
+    cci_col = f'cci_{window}'
+    data[cci_col] = (data['Typical_Price'] - data[f'SMA_Typical_Price_{window}']) / (0.015 * data['Mean_Deviation'])
+    
+    if fig:
+        # Add CCI line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[cci_col], mode='lines', name=f'CCI_{window}'), row=3, col=1)
+
+# Willian %R
+def calculate_williams_r_and_add_trace(data, window, fig=None):
+    # Calculate Williams %R
+    data[f'Highest_High_{window}'] = data['high'].rolling(window=window).max()
+    data[f'Lowest_Low_{window}'] = data['low'].rolling(window=window).min()
+    williams_r_col = f'williams_%R_{window}'
+    data[williams_r_col] = (data[f'Highest_High_{window}'] - data['close']) / (data[f'Highest_High_{window}'] - data[f'Lowest_Low_{window}']) * -100
+
+    if fig:
+        # Add Williams %R line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[williams_r_col], mode='lines', name=f'Williams %R_{window}'), row=3, col=1)
+
+# Pivot Points
+
+def calculate_pivot_points_and_add_trace(data, fig=None):
+    # Calculate Pivot Points, Support and Resistance Levels
+    data['pivot_point'] = (data['high'] + data['low'] + data['close']) / 3
+    data['support_1'] = (2 * data['pivot_point']) - data['high']
+    data['resistance_1'] = (2 * data['pivot_point']) - data['low']
+    data['support_2'] = data['pivot_point'] - (data['high'] - data['low'])
+    data['resistance_2'] = data['pivot_point'] + (data['high'] - data['low'])
+    data['support_3'] = data['low'] - 2 * (data['high'] - data['pivot_point'])
+    data['resistance_3'] = data['high'] + 2 * (data['pivot_point'] - data['low'])
+    
+    if fig:
+        # Add pivot points and support/resistance levels to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['pivot_point'], mode='lines', name='Pivot Point'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_1'], mode='lines', name='Support 1'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_1'], mode='lines', name='Resistance 1'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_2'], mode='lines', name='Support 2'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_2'], mode='lines', name='Resistance 2'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_3'], mode='lines', name='Support 3'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_3'], mode='lines', name='Resistance 3'), row=3, col=1)
+
+
+# ATR
+def calculate_atr_and_add_trace(data, window, fig=None):
+    # Calculate True Range (TR)
+    data['high_low'] = data['high'] - data['low']
+    data['high_close'] = abs(data['high'] - data['close'].shift(1))
+    data['low_close'] = abs(data['low'] - data['close'].shift(1))
+    data['true_range'] = data[['high_low', 'high_close', 'low_close']].max(axis=1)
+
+    # Calculate ATR
+    data[f'atr_{window}'] = data['true_range'].rolling(window=window).mean()
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', 'true_range', f'atr_{window}']].head())
+
+    if fig:
+        # Add ATR line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'atr_{window}'], mode='lines', name='ATR'), row=3, col=1)
+
+    return data
+
+#Keltner Channels
+def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_multiplier, fig=None):
+    # Calculate the 20-day EMA for the middle line
+    data[f'ema_{ema_window}'] = data['close'].ewm(span=ema_window, adjust=False).mean()
+
+    # Calculate True Range (TR)
+    data['high_low'] = data['high'] - data['low']
+    data['high_close'] = abs(data['high'] - data['close'].shift(1))
+    data['low_close'] = abs(data['low'] - data['close'].shift(1))
+    data['true_range'] = data[['high_low', 'high_close', 'low_close']].max(axis=1)
+
+    # Calculate ATR
+    data[f'atr_{atr_window}'] = data['true_range'].rolling(window=atr_window).mean()
+
+    # Calculate Upper and Lower Channel Lines
+    data[f'upper_channel'] = data[f'ema_{ema_window}'] + (atr_multiplier * data[f'atr_{atr_window}'])
+    data[f'lower_channel'] = data[f'ema_{ema_window}'] - (atr_multiplier * data[f'atr_{atr_window}'])
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', f'ema_{ema_window}', f'upper_channel', f'lower_channel']].head())
+
+    if fig:
+        # Add EMA (middle line) to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'ema_{ema_window}'], mode='lines', name='EMA'), row=3, col=1)
+        # Add Upper Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_channel'], mode='lines', name='Upper Channel'), row=3, col=1)
+        # Add Lower Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
+
+    return data
+
+# Price Channels
+
+def calculate_price_channels_and_add_trace(data, window, fig=None):
+    """
+    Calculate the Price Channels indicator and add it to the plot.
+    Upper Channel = Highest high over the last 'window' periods
+    Lower Channel = Lowest low over the last 'window' periods
+    """
+    # Calculate the upper and lower price channels
+    data[f'upper_channel'] = data['high'].rolling(window=window).max()
+    data[f'lower_channel'] = data['low'].rolling(window=window).min()
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', f'upper_channel', f'lower_channel']].head())
+
+    if fig:
+        # Add Upper Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_channel'], mode='lines', name='Upper Channel'), row=3, col=1)
+        # Add Lower Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
+
+    return data

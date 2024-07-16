@@ -820,3 +820,97 @@ def calculate_dmi(data, window=14, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['-DI'], mode='lines', name='-DI'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['ADX'], mode='lines', name='ADX'), row=3, col=1)
 
+# ADL Strategy
+
+
+def calculate_ADL(data, fig=None):
+    # Ensure data columns are correctly named and types are consistent
+    data['high'] = pd.to_numeric(data['high'])
+    data['low'] = pd.to_numeric(data['low'])
+    data['close'] = pd.to_numeric(data['close'])
+    data['Volume'] = pd.to_numeric(data['Volume'])
+
+    high = pd.Series(data['high'])
+    low = pd.Series(data['low'])
+    close = pd.Series(data['close'])
+
+    # Calculate Money Flow Multiplier (MF Multiplier) and Money Flow Volume (MFV)
+    mf_mult = ((close - low) - (high - close)) / (high - low)
+    mf_vol = mf_mult * data['Volume']
+
+    # Accumulate the Money Flow Volume to get ADL
+    data['ADL'] = mf_vol.cumsum()
+
+    if fig:
+        # Plot ADL on the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['ADL'], mode='lines', name='ADL'), row=3, col=1)
+
+#klinger volume oscillator
+
+
+def calculate_kvo(data, fast_period=34, slow_period=55, signal_period=13, fig=None):
+    close = pd.to_numeric(data['close'])
+    volume = pd.to_numeric(data['Volume'])
+
+    # Calculate True Range (TR)
+    tr = np.abs(close - close.shift(1))
+
+    # Calculate Money Flow Volume (MFV)
+    mfv = close - (close.shift(1) + close.shift(-1)) / 2
+    mfv *= volume
+
+    # Calculate Fast and Slow EMAs of MFV
+    fast_emav = mfv.ewm(span=fast_period, min_periods=fast_period).mean()
+    slow_emav = mfv.ewm(span=slow_period, min_periods=slow_period).mean()
+
+    # Calculate Klinger Volume Oscillator (KVO)
+    kvo = fast_emav - slow_emav
+
+    # Calculate Signal Line
+    signal_line = kvo.ewm(span=signal_period, min_periods=signal_period).mean()
+
+    data['KVO'] = kvo
+    data['KVO Signal'] = signal_line
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['KVO'], mode='lines', name='KVO'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['KVO Signal'], mode='lines', name='KVO Signal'), row=3, col=1)
+
+# Elder Ray
+
+
+
+
+def calculate_elder_ray(data, window=13, fig=None):
+    # Ensure data columns are correctly named and types are consistent
+    data['high'] = pd.to_numeric(data['high'])
+    data['low'] = pd.to_numeric(data['low'])
+    data['close'] = pd.to_numeric(data['close'])
+
+    high = pd.Series(data['high'])
+    low = pd.Series(data['low'])
+    close = pd.Series(data['close'])
+
+    # Calculate Exponential Moving Average (EMA)
+    ema = close.ewm(span=window, min_periods=window).mean()
+
+    # Calculate Bull Power and Bear Power
+    bull_power = high - ema
+    bear_power = low - ema
+
+    # Add Bull Power and Bear Power to the DataFrame
+    data['Bull Power'] = bull_power
+    data['Bear Power'] = bear_power
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Bull Power'], mode='lines', name='Bull Power'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Bear Power'], mode='lines', name='Bear Power'), row=3, col=1)
+
+
+
+#Swing Index
+
+
+
+
+

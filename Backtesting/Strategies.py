@@ -1355,7 +1355,7 @@ def implement_proc_strategy(df, n, stop_loss_percentage, toPlot=False):
     return pnl_res
 
 
-# VORTEX INDICATOR STRATEGY
+# -----------------------------------------------VORTEX INDICATOR STRATEGY-------------------------------------------------------------
 def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
     """Implements the Vortex Indicator strategy with stop-loss."""
     ticker = df['ticker'].iloc[0]

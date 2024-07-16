@@ -1413,3 +1413,409 @@ def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
         fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+# #----------------------------------------------------------RVI Strategy-----------------------------------------------------------
+
+def implement_RVI(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_RVI(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['RVI'].iloc[i] > 0 and data['RVI'].iloc[i - 1] <= 0:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['RVI'].iloc[i] < 0 and data['RVI'].iloc[i - 1] >= 0:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+# #----------------------------------------------------------Volume Oscillator Strategy-----------------------------------------------------------
+
+
+
+def implement_volume_oscillator(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_volume_oscillator(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['Volume_Oscillator'].iloc[i] > 0 and data['Volume_Oscillator'].iloc[i - 1] <= 0:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['Volume_Oscillator'].iloc[i] < 0 and data['Volume_Oscillator'].iloc[i - 1] >= 0:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+# #----------------------------------------------------------CMO Strategy-----------------------------------------------------------
+
+
+def implement_CMO(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_CMO(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['CMO'].iloc[i] > 0 and data['CMO'].iloc[i - 1] <= 0:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['CMO'].iloc[i] < 0 and data['CMO'].iloc[i - 1] >= 0:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+# #----------------------------------------------------------Aroon Strategy-----------------------------------------------------------
+
+from Backtesting import data_retriever_util as dr
+from Backtesting import Indicators as ndct
+from Backtesting import utils as btutil
+from Backtesting import Backtest as sb_bt
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
+
+def implement_aroon(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_aroon(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['Aroon Up'].iloc[i] > data['Aroon Down'].iloc[i] and data['Aroon Up'].iloc[i - 1] <= data['Aroon Down'].iloc[i - 1]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['Aroon Down'].iloc[i] > data['Aroon Up'].iloc[i] and data['Aroon Down'].iloc[i - 1] <= data['Aroon Up'].iloc[i - 1]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+# #----------------------------------------------------------Ultimate Oscillator Strategy-----------------------------------------------------------
+
+
+def implement_ultimate_oscillator(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_ultimate_oscillator(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['Ultimate Oscillator'].iloc[i] > 30 and data['Ultimate Oscillator'].iloc[i - 1] <= 30:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['Ultimate Oscillator'].iloc[i] < 70 and data['Ultimate Oscillator'].iloc[i - 1] >= 70:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+# #----------------------------------------------------------Chandelier Exit Strategy-----------------------------------------------------------
+
+
+
+
+def implement_chandelier_exit(data, toPlot=False, stop_loss_percentage=0.05):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_chandelier_exit(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['close'].iloc[i] > data['Chandelier Exit Long'].iloc[i]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['close'].iloc[i] < data['Chandelier Exit Short'].iloc[i]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res
+
+
+# #----------------------------------------------------------DMI Strategy-----------------------------------------------------------
+
+
+
+def implement_dmi(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_dmi(data, fig=fig)
+
+    buy_signals = [float('nan')]
+    sell_signals = [float('nan')]
+    triggers = ['H']
+    position = None
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['+DI'].iloc[i] > data['-DI'].iloc[i] and data['+DI'].iloc[i - 1] <= data['-DI'].iloc[i - 1]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        elif data['-DI'].iloc[i] > data['+DI'].iloc[i] and data['-DI'].iloc[i - 1] <= data['+DI'].iloc[i - 1]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
+    return pnl_res

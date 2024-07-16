@@ -1051,4 +1051,66 @@ def calculate_elder_ray(data, window=13, fig=None):
 #Swing Index
 
 
+#Schaff Trend Cycle Strategy
+def calculate_stc(data, short_window, long_window, signal_window, cycle_window, fig=None):
+    """Calculate the Schaff Trend Cycle (STC) and optionally plot it."""
+    # Use the existing MACD calculation function
+    calculate_macd_and_add_trace(data, short_window, long_window, signal_window, fig)
+    
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    
+    stc = []
+    for i in range(len(data)):
+        if i < cycle_window:
+            stc.append(float('nan'))
+        else:
+            stc.append(data[macd_col].iloc[i] - data[signal_col].iloc[i])
 
+    data['STC'] = pd.Series(stc).ewm(span=cycle_window, adjust=False).mean()
+
+    if fig:
+        # Add STC to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['STC'], mode='lines', name='STC'), row=3, col=1)
+
+
+#DIVERGENCE ANALYSIS
+def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, signal_window=9, rsi_window=14, fig=None):
+    # Calculate MACD
+    data[f'ema_{short_window}'] = data['close'].ewm(span=short_window, adjust=False).mean()
+    data[f'ema_{long_window}'] = data['close'].ewm(span=long_window, adjust=False).mean()
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+    data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
+    data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
+    data[histogram_col] = data[macd_col] - data[signal_col]
+    
+    # Calculate RSI
+    delta = data['close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=rsi_window, min_periods=1).mean()
+    avg_loss = loss.rolling(window=rsi_window, min_periods=1).mean()
+    rs = avg_gain / avg_loss
+    rsi_col = f'rsi_{rsi_window}'
+    data[rsi_col] = 100 - (100 / (1 + rs))
+    
+    # Calculate OBV
+    obv = (np.sign(data['close'].diff()) * data['Volume']).fillna(0).cumsum()
+    obv_col = 'obv'
+    data[obv_col] = obv
+
+    if fig:
+        # Add MACD traces
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+        
+        # Add RSI trace
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[rsi_col], mode='lines', name='RSI'), row=3, col=1)
+        
+        # Add OBV trace
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[obv_col], mode='lines', name='OBV'), row=3, col=1)
+        
+    return data

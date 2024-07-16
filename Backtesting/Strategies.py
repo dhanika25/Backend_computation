@@ -2420,3 +2420,127 @@ def implement_elder_ray(data, toPlot=False):
 
 
 # #----------------------------------------------------------Envelope Strategy-----------------------------------------------------------
+
+
+#--------------------------------------------- Divergence Analysis-------------------------------------------------------------------------
+def implement_divergence(df, short_window=12, long_window=26, signal_window=9, rsi_window=14, toPlot=False, stop_loss_percentage=0.1, divergence_window=5):
+    """Identifies divergences between price and indicators (RSI, MACD, OBV) and implements trading strategy based on those divergences."""
+    
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate indicators
+    df = ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window)
+
+    buy_signals = [float('nan')] * len(df)
+    sell_signals = [float('nan')] * len(df)
+    triggers = ['H'] * len(df)
+    isHoldingStock = False
+    buy_price = 0
+
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+    rsi_col = f'rsi_{rsi_window}'
+    obv_col = 'obv'
+
+    for i in range(max(short_window, long_window, rsi_window, divergence_window), len(df)):
+        if not isHoldingStock:
+            # Entry Condition for Bullish Divergence
+            if (df['close'].iloc[i] < df['close'].iloc[i - divergence_window] and 
+                df[macd_col].iloc[i] > df[macd_col].iloc[i - divergence_window] and
+                df[rsi_col].iloc[i] > df[rsi_col].iloc[i - divergence_window] and
+                df[obv_col].iloc[i] > df[obv_col].iloc[i - divergence_window]):
+                
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition for Bearish Divergence and Stop-loss
+            if ((df['close'].iloc[i] > df['close'].iloc[i - divergence_window] and 
+                df[macd_col].iloc[i] < df[macd_col].iloc[i - divergence_window] and
+                df[rsi_col].iloc[i] < df[rsi_col].iloc[i - divergence_window] and
+                df[obv_col].iloc[i] < df[obv_col].iloc[i - divergence_window]) or 
+                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
+                
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        buy_signals[i] = float('nan')
+        sell_signals[i] = float('nan')
+        triggers[i] = 'H'
+
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    df = ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window, fig)
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+#---------------------------------------------Schaff Trend Cycle Strategy-----------------------------------------------------------------------
+def implement_stc_strategy(df, short_window, long_window, signal_window, cycle_window, stop_loss_percentage, toPlot=False):
+    """Implements the STC strategy with stop-loss."""
+    ticker = df['ticker'].iloc[0]
+    fig = dr.plotGraph(df, ticker) if toPlot else None
+
+    # Calculate STC
+    ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)  # Calculate STC within this function
+
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
+    isHoldingStock = False  # Boolean to check if holding stock
+    buy_price = 0  # Track the price at which the stock was bought
+
+    for i in range(cycle_window, len(df)):
+        if not isHoldingStock:
+            # Entry Condition
+            """Buy when STC is rising"""
+            if df['STC'].iloc[i] > df['STC'].iloc[i-1]:
+                buy_signals[i] = df['close'].iloc[i]
+                sell_signals[i] = float('nan')
+                triggers[i] = 'B'
+                isHoldingStock = True
+                buy_price = df['close'].iloc[i]
+                continue
+
+        else:
+            # Exit Condition based on STC and Stop-loss
+            """Sell when STC is falling or close price is less than stop-loss line"""
+            if df['STC'].iloc[i] < df['STC'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+                buy_signals[i] = float('nan')
+                sell_signals[i] = df['close'].iloc[i]
+                triggers[i] = 'S'
+                isHoldingStock = False
+                continue
+
+        if not isHoldingStock:
+            buy_signals[i] = float('nan')
+            sell_signals[i] = float('nan')
+            triggers[i] = 'H'
+
+    # Assign lists to DataFrame columns
+    df['buy_signal'] = buy_signals
+    df['sell_signal'] = sell_signals
+    df['Trigger'] = triggers
+
+    # Add STC to the plot if required
+    ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)
+
+    pnl_res = sb_bt.simpleBacktest(df)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(df, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
+

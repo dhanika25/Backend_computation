@@ -159,9 +159,7 @@ def calculate_and_add_fibonacci_levels(data, fig=None):
 
     if fig:
         for level, value in levels.items():
-            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=1, col=1)
-    
-    return levels
+            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=3, col=1)
 
 # ADX
 
@@ -338,31 +336,55 @@ def calculate_head_and_shoulders(data, fig=None):
         fig.add_trace(go.Scatter(x=[neckline[0]['Date'], neckline[1]['Date']],
                                  y=[neckline[0]['close'], neckline[1]['close']],
                                  mode='lines', name='Neckline'), row=3, col=1)
-    
-    return data, neckline
 
 # Double Top/Bottom
+def identify_double_top_bottom(data, fig=None):
+    data['double_top'] = float('nan')
+    data['double_bottom'] = float('nan')
+    double_top_indices = []
+    double_bottom_indices = []
 
-def detect_double_top_bottom(data, fig=None):
-    data['double_top'] = [float('nan')] * len(data)
-    data['double_bottom'] = [float('nan')] * len(data)
+    for i in range(1, len(data)-1):
+        # Detecting Double Top
+        if data['high'].iloc[i-1] < data['high'].iloc[i] and data['high'].iloc[i+1] < data['high'].iloc[i]:
+            if i-2 >= 0 and data['high'].iloc[i-2] < data['high'].iloc[i-1] and data['high'].iloc[i+2] < data['high'].iloc[i+1]:
+                double_top_indices.append(i)
+                data['double_top'].iloc[i] = data['high'].iloc[i]
 
-    # Assuming a simple approach to detect double tops/bottoms
-    peaks = (data['high'] > data['high'].shift(1)) & (data['high'] > data['high'].shift(-1))
-    troughs = (data['low'] < data['low'].shift(1)) & (data['low'] < data['low'].shift(-1))
-
-    for i in range(1, len(data) - 1):
-        if peaks[i] and data['high'][i] >= data['high'][i-1] and data['high'][i] >= data['high'][i+1]:
-            data['double_top'][i] = data['high'][i]
-        elif troughs[i] and data['low'][i] <= data['low'][i-1] and data['low'][i] <= data['low'][i+1]:
-            data['double_bottom'][i] = data['low'][i]
+        # Detecting Double Bottom
+        if data['low'].iloc[i-1] > data['low'].iloc[i] and data['low'].iloc[i+1] > data['low'].iloc[i]:
+            if i-2 >= 0 and data['low'].iloc[i-2] > data['low'].iloc[i-1] and data['low'].iloc[i+2] > data['low'].iloc[i+1]:
+                double_bottom_indices.append(i)
+                data['double_bottom'].iloc[i] = data['low'].iloc[i]
 
     if fig:
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['double_top'], mode='markers', name='Double Top', marker=dict(color='blue', symbol='triangle-up')), row=1, col=1)
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['double_bottom'], mode='markers', name='Double Bottom', marker=dict(color='black', symbol='triangle-down')), row=1, col=1)
+        if double_top_indices:
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[idx] for idx in double_top_indices],
+                y=[data['high'].iloc[idx] for idx in double_top_indices],
+                mode='markers',
+                marker=dict(symbol='triangle-up', color='blue', size=10),
+                name='Double Top'
+            ))
+        if double_bottom_indices:
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[idx] for idx in double_bottom_indices],
+                y=[data['low'].iloc[idx] for idx in double_bottom_indices],
+                mode='markers',
+                marker=dict(symbol='triangle-down', color='black', size=10),
+                name='Double Bottom'
+            ))
 
-    return data
-    return data,fig
+        # Add dotted lines connecting each double top to its corresponding double bottom
+        for top_idx, bottom_idx in zip(double_top_indices, double_bottom_indices):
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[top_idx], data['Date'].iloc[bottom_idx]],
+                y=[data['high'].iloc[top_idx], data['low'].iloc[bottom_idx]],
+                mode='lines',
+                line=dict(color='green', width=2, dash='dot'),
+                name='Double Top-Bottom Line',
+                showlegend=False
+            ))
 
 #VPT STRATEGY
 def calculate_vpt(data, fig=None):
@@ -477,7 +499,6 @@ def calculate_donchian_channels(data, n, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
 #Flags and Pennants
-
 def calculate_flag_and_add_trace(data, fig=None):
     data['flag_top'] = np.nan
     data['flag_bottom'] = np.nan
@@ -511,11 +532,8 @@ def calculate_flag_and_add_trace(data, fig=None):
         # Add flag formation to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_top'], mode='lines', name='Flag Top'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_bottom'], mode='lines', name='Flag Bottom'), row=3, col=1)
-    
-    return data
 
 # Triangles
-
 def calculate_triangle_and_add_trace(data, fig=None):
     data['upper_trendline'] = np.nan
     data['lower_trendline'] = np.nan
@@ -540,7 +558,6 @@ def calculate_triangle_and_add_trace(data, fig=None):
         # Add lower trendline to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_trendline'], mode='lines', name='Lower Trendline'), row=3, col=1)
     
-    return data
 
 
 #GANN ANGLES
@@ -745,7 +762,6 @@ def calculate_atr_and_add_trace(data, window, fig=None):
         # Add ATR line to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'atr_{window}'], mode='lines', name='ATR'), row=3, col=1)
 
-    return data
 
 #Keltner Channels
 def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_multiplier, fig=None):
@@ -776,7 +792,6 @@ def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_m
         # Add Lower Channel line to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
-    return data
 
 # Price Channels
 
@@ -799,7 +814,6 @@ def calculate_price_channels_and_add_trace(data, window, fig=None):
         # Add Lower Channel line to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
-    return data
 
 #RVI Strategy
 import pandas as pd

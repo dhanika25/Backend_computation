@@ -802,8 +802,7 @@ def calculate_price_channels_and_add_trace(data, window, fig=None):
     return data
 
 #RVI Strategy
-import pandas as pd
-import plotly.graph_objs as go
+
 
 def calculate_RVI(data, window=10, fig=None):
     close_open_diff = data['close'] - data['Open']
@@ -979,7 +978,6 @@ def calculate_dmi(data, window=14, fig=None):
 )
 
 
-    return data
 
 
 
@@ -1093,7 +1091,6 @@ def calculate_swing_index(data, limit_move=0.05, fig=None):
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['SwingIndex'], mode='lines', name='Swing Index'), row=3, col=1)
 
-    return data
 
 
 
@@ -1179,7 +1176,7 @@ def calculate_ichimoku(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['senkou_span_a'], mode='lines', name='Senkou Span A'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['senkou_span_b'], mode='lines', name='Senkou Span B'), row=3, col=1)
 
-    return data
+
 
 #ZgZag Indicator
 
@@ -1218,7 +1215,6 @@ def calculate_zigzag(data, threshold=5, fig=None):
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['zigzag'], mode='lines+markers', name='Zig Zag'), row=3, col=1)
 
-    return data
 
 
 #ATR Strategy
@@ -1239,13 +1235,6 @@ def calculate_atr(data, window=14, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
 
-    return data
-
-    if fig:
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
-
-    return data
 
 
 #Envelope Band
@@ -1260,4 +1249,3 @@ def calculate_envelope_channel(data, window=20, offset=0.02, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
 
-    return data

@@ -1355,7 +1355,7 @@ def implement_proc_strategy(df, n, stop_loss_percentage, toPlot=False):
     return pnl_res
 
 
-# -----------------------------------------------VORTEX INDICATOR STRATEGY-------------------------------------------------------------
+#VORTEX INDICATOR STRATEGY
 def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
     """Implements the Vortex Indicator strategy with stop-loss."""
     ticker = df['ticker'].iloc[0]
@@ -1404,423 +1404,6 @@ def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
 
     # Add Vortex Indicator to the plot if required
     ndct.calculate_vortex(df, n, fig)
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# -------------------------------------------------Rate of Change-------------------------------------------------------------------
-def implement_roc(df, window, toPlot=False, stop_loss_percentage=0.1):
-    """Implements a strategy based on the Rate of Change (ROC) indicator."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate ROC within this function
-    ndct.calculate_roc_and_add_trace(df, window)  # Calculate ROC within this function
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False  # None means not holding stock, True means holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
-    # Properly format the column name
-    roc_col = f'roc_{window}'
-
-    for i in range(window, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when ROC is positive and rising"""
-
-            if (df[roc_col].iloc[i] > 0 and df[roc_col].iloc[i] > df[roc_col].iloc[i - 1]):
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-
-        else:
-            # Exit Condition based on ROC and Stop-loss
-            """Sell when ROC is negative and falling, or close price is less than stop-loss line"""
-
-            if (df[roc_col].iloc[i] < 0 and df[roc_col].iloc[i] < df[roc_col].iloc[i - 1] or
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    ndct.calculate_roc_and_add_trace(df, window, fig)  # Trace the ROC graph
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# ------------------------------------------------Commodity Channel Index----------------------------------------------------------
-def implement_cci(df, window, toPlot=False, stop_loss_percentage=0.1):
-    """Implements a strategy based on the Commodity Channel Index (CCI) indicator."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate CCI within this function
-    ndct.calculate_cci_and_add_trace(df, window)  # Calculate CCI within this function
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False  # None means not holding stock, True means holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
-    # Properly format the column name
-    cci_col = f'cci_{window}'
-
-    for i in range(window, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when CCI crosses above +100 from below"""
-
-            if df[cci_col].iloc[i] > 100 and df[cci_col].iloc[i - 1] <= 100:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-
-        else:
-            # Exit Condition based on CCI and Stop-loss
-            """Sell when CCI crosses below -100 from above, or close price is less than stop-loss line"""
-
-            if (df[cci_col].iloc[i] < -100 and df[cci_col].iloc[i - 1] >= -100 or
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    ndct.calculate_cci_and_add_trace(df, window, fig)  # Trace the CCI graph
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# ------------------------------------------------------William %R------------------------------------------------------------------
-def implement_williams_r(df, window, toPlot=False, stop_loss_percentage=0.1):
-    """Implements a strategy based on the Williams %R indicator."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate Williams %R within this function
-    ndct.calculate_williams_r_and_add_trace(df, window)  # Calculate Williams %R within this function
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False  # None means not holding stock, True means holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
-    # Properly format the column name
-    williams_r_col = f'williams_%R_{window}'
-
-    for i in range(window, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when Williams %R crosses above -80 from below"""
-
-            if df[williams_r_col].iloc[i] > -80 and df[williams_r_col].iloc[i - 1] <= -80:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-
-        else:
-            # Exit Condition based on Williams %R and Stop-loss
-            """Sell when Williams %R crosses below -20 from above, or close price is less than stop-loss line"""
-
-            if (df[williams_r_col].iloc[i] < -20 and df[williams_r_col].iloc[i - 1] >= -20 or
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    ndct.calculate_williams_r_and_add_trace(df, window, fig)  # Trace the Williams %R graph
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# -------------------------------------------------Pivot Points------------------------------------------------------------------
-def implement_pivot_points(df, toPlot=False, stop_loss_percentage=0.1):
-    """Implements a trading strategy based on pivot points, support, and resistance levels."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate pivot points and add trace to the figure if toPlot is True
-    ndct.calculate_pivot_points_and_add_trace(df, fig)
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
-    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
-    for i in range(1, len(df)):
-        if not isHoldingStock:
-            # Entry Condition: Buy near support levels identified by pivot points
-            if (df['low'].iloc[i] <= df['support_1'].iloc[i] or 
-                df['low'].iloc[i] <= df['support_2'].iloc[i] or 
-                df['low'].iloc[i] <= df['support_3'].iloc[i]):
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-
-        else:
-            # Exit Condition: Sell near resistance levels or based on stop-loss
-            if (df['high'].iloc[i] >= df['resistance_1'].iloc[i] or 
-                df['high'].iloc[i] >= df['resistance_2'].iloc[i] or 
-                df['high'].iloc[i] >= df['resistance_3'].iloc[i] or
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to dfFrame columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    # If toPlot is True, add buy/sell signals to the plot
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-
-# --------------------------------------------------------ATR-----------------------------------------------------------------------
-def implement_atr(df, window, toPlot=False, stop_loss_percentage=0.1):
-    """Uses ATR to gauge market volatility. Entry when ATR is increasing, exit when ATR is decreasing."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate ATR within this function
-    ndct.calculate_atr_and_add_trace(df, window)
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False
-    buy_price = 0
-
-    # Properly format the column name
-    atr_col = f'atr_{window}'
-
-    for i in range(1, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when ATR is increasing (current ATR > previous ATR)"""
-            if df[atr_col].iloc[i] > df[atr_col].iloc[i - 1]:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-        else:
-            # Exit Condition based on ATR and Stop-loss
-            """Sell when ATR is decreasing (current ATR < previous ATR) or close price < stop-loss"""
-            if df[atr_col].iloc[i] < df[atr_col].iloc[i - 1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    # Plot ATR if toPlot is True
-    ndct.calculate_atr_and_add_trace(df, window, fig)
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# ----------------------------------------------------Keltner Channels------------------------------------------------------------
-def implement_keltner_channels(df, ema_window, atr_window, atr_multiplier, toPlot=False, stop_loss_percentage=0.1):
-    """Uses Keltner Channels for trading strategy. Entry at lower channel, exit at upper channel."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate Keltner Channels within this function
-    ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier)
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False
-    buy_price = 0
-
-    # Properly format the column names
-    lower_channel_col = 'lower_channel'
-    upper_channel_col = 'upper_channel'
-
-    for i in range(1, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when the price touches the lower channel"""
-            if df['close'].iloc[i] <= df[lower_channel_col].iloc[i]:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-        else:
-            # Exit Condition based on Keltner Channels and Stop-loss
-            """Sell when the price touches the upper channel or close price < stop-loss"""
-            if df['close'].iloc[i] >= df[upper_channel_col].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    # Plot Keltner Channels if toPlot is True
-    ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier, fig)
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-
-# ----------------------------------------------------------Price Channels--------------------------------------------------------
-def implement_price_channels(df, window, toPlot=False, stop_loss_percentage=0.1):
-    """Uses Price Channels for trading strategy. Entry at lower channel, exit at upper channel."""
-
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate Price Channels within this function
-    ndct.calculate_price_channels_and_add_trace(df, window)
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False
-    buy_price = 0
-
-    # Properly format the column names
-    lower_channel_col = 'lower_channel'
-    upper_channel_col = 'upper_channel'
-
-    for i in range(1, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when the price touches the lower channel"""
-            if df['close'].iloc[i] <= df[lower_channel_col].iloc[i]:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-        else:
-            # Exit Condition based on Price Channels and Stop-loss
-            """Sell when the price touches the upper channel or close price < stop-loss"""
-            if df['close'].iloc[i] >= df[upper_channel_col].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    # Assign lists to df columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    # Plot Price Channels if toPlot is True
-    ndct.calculate_price_channels_and_add_trace(df, window, fig)
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
@@ -2403,175 +1986,287 @@ def implement_elder_ray(data, toPlot=False):
 
 
 # #----------------------------------------------------------Swing Index Strategy-----------------------------------------------------------
-
-
-
-
-def implement_swing_index(data, toPlot=False):
-    # Calculate Swing Index
+def implement_swing_index(data, limit_move=0.05, toPlot=False):
     ticker = data['ticker'].iloc[0]
     fig = dr.plotGraph(data, ticker) if toPlot else None
-    ndct.calculate_swing_index_signal(data)
-    buy_signals = [float('nan')]
-    sell_signals = [float('nan')]
-    triggers = ['H']
-    position = None
-    # Example logic to generate buy/sell signals
-    data['Trigger'] = ''  # Placeholder for trigger signals
+
+    ndct.calculate_swing_index(data, limit_move, fig)
+    buy_signals = [float('nan')]  
+    sell_signals = [float('nan')]  
+    triggers = ['H']  
+    position = None  
+    buy_price = 0  
 
     for i in range(1, len(data)):
-        if data['Swing Index'].iloc[i] > data['Swing Index'].iloc[i - 1]:
-            data.at[i, 'Trigger'] = 'B'  # Buy signal
-        elif data['Swing Index'].iloc[i] < data['Swing Index'].iloc[i - 1]:
-            data.at[i, 'Trigger'] = 'S'  # Sell signal
+        flag=False
+        if data['SwingIndex'].iloc[i - 1] < 0 and data['SwingIndex'].iloc[i] > 0:
+            flag=True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+                buy_price = data['close'].iloc[i]
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+        
+        elif data['SwingIndex'].iloc[i - 1] > 0 and data['SwingIndex'].iloc[i] < 0:
+            flag=True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+                print(data['Date'].iloc[i],"-exit condition executed")
+
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag==False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
     data['buy_signal'] = buy_signals
     data['sell_signal'] = sell_signals
     data['Trigger'] = triggers
     pnl_res = sb_bt.simpleBacktest(data)
-    # Plotting if required
     if toPlot:
-        fig = btutil.addBuySell2Graph(data, fig) # Assuming you have a function to plot initial graph
+        fig = btutil.addBuySell2Graph(data, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-
     return pnl_res
-
-
-
-
-
 
 
 # #----------------------------------------------------------Senkou Span Strategy-----------------------------------------------------------
 
+def implement_senkou_span(data, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_ichimoku(data, fig)
+    buy_signals = [float('nan')]  
+    sell_signals = [float('nan')]  
+    triggers = ['H']  
+    position = None  
+    buy_price = 0  
+
+    for i in range(1, len(data)):
+        flag = False
+        if data['close'].iloc[i] > data['senkou_span_a'].iloc[i] and data['close'].iloc[i] > data['senkou_span_b'].iloc[i]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+                buy_price = data['close'].iloc[i]
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+        
+        elif data['close'].iloc[i] < data['senkou_span_a'].iloc[i] and data['close'].iloc[i] < data['senkou_span_b'].iloc[i]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+                print(data['Date'].iloc[i], "-exit condition executed")
+
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 
 # #----------------------------------------------------------Zig Zag Strategy-----------------------------------------------------------
 
+def implement_zigzag(data, threshold=5, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_zigzag(data, threshold, fig)
+    buy_signals = [float('nan')]  
+    sell_signals = [float('nan')]  
+    triggers = ['H']  
+    position = None  
+    buy_price = 0  
+
+    for i in range(1, len(data)):
+        flag = False
+        if pd.notna(data['zigzag'].iloc[i]):
+            if data['zigzag'].iloc[i] > data['close'].iloc[i-1]:  # bullish zigzag
+                flag = True
+                if position != 1:
+                    buy_signals.append(data['close'].iloc[i])
+                    sell_signals.append(float('nan'))
+                    triggers.append('B')
+                    position = 1
+                    buy_price = data['close'].iloc[i]
+                else:
+                    buy_signals.append(float('nan'))
+                    sell_signals.append(float('nan'))
+                    triggers.append('H')
+            
+            elif data['zigzag'].iloc[i] < data['close'].iloc[i-1]:  # bearish zigzag
+                flag = True
+                if position == 1:
+                    buy_signals.append(float('nan'))
+                    sell_signals.append(data['close'].iloc[i])
+                    triggers.append('S')
+                    position = 0
+                    print(data['Date'].iloc[i], "-exit condition executed")
+
+                else:
+                    buy_signals.append(float('nan'))
+                    sell_signals.append(float('nan'))
+                    triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 
 # #----------------------------------------------------------Average True Range Bands Strategy-----------------------------------------------------------
+def implement_atr_bands(data, window=14, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
+
+    ndct.calculate_atr(data, window, fig)
+    buy_signals = [float('nan')]  
+    sell_signals = [float('nan')]  
+    triggers = ['H']  
+    position = None  
+    buy_price = 0  
+
+    for i in range(1, len(data)):
+        flag = False
+
+        # Entry Condition (Buy)
+        if data['close'].iloc[i] <= data['lower_band'].iloc[i]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+                buy_price = data['close'].iloc[i]
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        # Exit Condition (Sell)
+        elif data['close'].iloc[i] >= data['upper_band'].iloc[i]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+                print(data['Date'].iloc[i], "-exit condition executed")
+
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
+
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
+
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
+    if toPlot:
+        fig = btutil.addBuySell2Graph(data, fig)
+        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+    return pnl_res
 
 
 # #----------------------------------------------------------Envelope Strategy-----------------------------------------------------------
+def implement_envelope_channel(data, window=20, offset=0.02, toPlot=False):
+    ticker = data['ticker'].iloc[0]
+    fig = dr.plotGraph(data, ticker) if toPlot else None
 
+    ndct.calculate_envelope_channel(data, window, offset, fig)
+    buy_signals = [float('nan')]  
+    sell_signals = [float('nan')]  
+    triggers = ['H']  
+    position = None  
+    buy_price = 0  
 
-#--------------------------------------------- Divergence Analysis-------------------------------------------------------------------------
-def implement_divergence(df, short_window=12, long_window=26, signal_window=9, rsi_window=14, toPlot=False, stop_loss_percentage=0.1, divergence_window=5):
-    """Identifies divergences between price and indicators (RSI, MACD, OBV) and implements trading strategy based on those divergences."""
-    
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
+    for i in range(1, len(data)):
+        flag = False
 
-    # Calculate indicators
-    df = ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window)
+        # Entry Condition (Buy)
+        if data['close'].iloc[i] <= data['lower_band'].iloc[i]:
+            flag = True
+            if position != 1:
+                buy_signals.append(data['close'].iloc[i])
+                sell_signals.append(float('nan'))
+                triggers.append('B')
+                position = 1
+                buy_price = data['close'].iloc[i]
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
-    isHoldingStock = False
-    buy_price = 0
+        # Exit Condition (Sell)
+        elif data['close'].iloc[i] >= data['upper_band'].iloc[i]:
+            flag = True
+            if position == 1:
+                buy_signals.append(float('nan'))
+                sell_signals.append(data['close'].iloc[i])
+                triggers.append('S')
+                position = 0
+                print(data['Date'].iloc[i], "-exit condition executed")
 
-    macd_col = f'macd_{short_window}_{long_window}'
-    signal_col = f'signal_line_{short_window}_{long_window}'
-    histogram_col = f'macd_histogram_{short_window}_{long_window}'
-    rsi_col = f'rsi_{rsi_window}'
-    obv_col = 'obv'
+            else:
+                buy_signals.append(float('nan'))
+                sell_signals.append(float('nan'))
+                triggers.append('H')
 
-    for i in range(max(short_window, long_window, rsi_window, divergence_window), len(df)):
-        if not isHoldingStock:
-            # Entry Condition for Bullish Divergence
-            if (df['close'].iloc[i] < df['close'].iloc[i - divergence_window] and 
-                df[macd_col].iloc[i] > df[macd_col].iloc[i - divergence_window] and
-                df[rsi_col].iloc[i] > df[rsi_col].iloc[i - divergence_window] and
-                df[obv_col].iloc[i] > df[obv_col].iloc[i - divergence_window]):
-                
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
+        if flag == False:
+            buy_signals.append(float('nan'))
+            sell_signals.append(float('nan'))
+            triggers.append('H')
 
-        else:
-            # Exit Condition for Bearish Divergence and Stop-loss
-            if ((df['close'].iloc[i] > df['close'].iloc[i - divergence_window] and 
-                df[macd_col].iloc[i] < df[macd_col].iloc[i - divergence_window] and
-                df[rsi_col].iloc[i] < df[rsi_col].iloc[i - divergence_window] and
-                df[obv_col].iloc[i] < df[obv_col].iloc[i - divergence_window]) or 
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
-                
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        buy_signals[i] = float('nan')
-        sell_signals[i] = float('nan')
-        triggers[i] = 'H'
-
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    df = ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window, fig)
-
-    pnl_res = sb_bt.simpleBacktest(df)
+    data['buy_signal'] = buy_signals
+    data['sell_signal'] = sell_signals
+    data['Trigger'] = triggers
+    pnl_res = sb_bt.simpleBacktest(data)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(data, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
-#---------------------------------------------Schaff Trend Cycle Strategy-----------------------------------------------------------------------
-def implement_stc_strategy(df, short_window, long_window, signal_window, cycle_window, stop_loss_percentage, toPlot=False):
-    """Implements the STC strategy with stop-loss."""
-    ticker = df['ticker'].iloc[0]
-    fig = dr.plotGraph(df, ticker) if toPlot else None
-
-    # Calculate STC
-    ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)  # Calculate STC within this function
-
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
-    isHoldingStock = False  # Boolean to check if holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
-    for i in range(cycle_window, len(df)):
-        if not isHoldingStock:
-            # Entry Condition
-            """Buy when STC is rising"""
-            if df['STC'].iloc[i] > df['STC'].iloc[i-1]:
-                buy_signals[i] = df['close'].iloc[i]
-                sell_signals[i] = float('nan')
-                triggers[i] = 'B'
-                isHoldingStock = True
-                buy_price = df['close'].iloc[i]
-                continue
-
-        else:
-            # Exit Condition based on STC and Stop-loss
-            """Sell when STC is falling or close price is less than stop-loss line"""
-            if df['STC'].iloc[i] < df['STC'].iloc[i-1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
-                buy_signals[i] = float('nan')
-                sell_signals[i] = df['close'].iloc[i]
-                triggers[i] = 'S'
-                isHoldingStock = False
-                continue
-
-        if not isHoldingStock:
-            buy_signals[i] = float('nan')
-            sell_signals[i] = float('nan')
-            triggers[i] = 'H'
-
-    # Assign lists to DataFrame columns
-    df['buy_signal'] = buy_signals
-    df['sell_signal'] = sell_signals
-    df['Trigger'] = triggers
-
-    # Add STC to the plot if required
-    ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)
-
-    pnl_res = sb_bt.simpleBacktest(df)
-    if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-    return pnl_res
-

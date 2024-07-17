@@ -2,7 +2,7 @@ import plotly.graph_objects as go
 import random
 import pandas as pd
 import numpy as np
-
+import ta
 
 # import pandas as pd
 
@@ -75,8 +75,8 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
 #RSI Strategy
 
 def calculate_RSI(data, window=14,fig=None):
-    #rsi = RSIIndicator(close=data['close'], window=window)
-    #data['RSI'] = rsi.rsi()
+    rsi = ta.RSIIndicator(close=data['close'], window=window)
+    data['RSI'] = rsi.rsi()
     if fig:
             # Add RSI indicator to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['RSI'], mode='lines', name='RSI'), row=3, col=1)
@@ -920,6 +920,7 @@ def calculate_chandelier_exit(data, window=22, multiplier=3, fig=None):
 
 #DMI Strategy
 
+
 def calculate_dmi(data, window=14, fig=None):
     # Ensure data columns are correctly named and types are consistent
     data['high'] = pd.to_numeric(data['high'])
@@ -959,6 +960,29 @@ def calculate_dmi(data, window=14, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['+DI'], mode='lines', name='+DI'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['-DI'], mode='lines', name='-DI'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['ADX'], mode='lines', name='ADX'), row=3, col=1)
+
+        fig.update_xaxes(title_text="Date", row=3, col=1)
+        fig.update_yaxes(title_text="DMI", row=10, col=1)
+
+        fig.add_annotation(
+        dict(
+        x=0.5,
+        y=0.285,  # Adjust this value to position the title within the subplot
+        xref='x3 domain',
+        yref='paper',  # Use paper reference for y
+        text="DMI",
+        showarrow=False,
+        font=dict(size=16),
+        xanchor='center',
+        yanchor='bottom'
+    )
+)
+
+
+    return data
+
+
+
 
 # ADL Strategy
 
@@ -1051,6 +1075,28 @@ def calculate_elder_ray(data, window=13, fig=None):
 #Swing Index
 
 
+def calculate_swing_index(data, limit_move=0.05, fig=None):
+    data['SwingIndex'] = 0
+    for i in range(1, len(data)):
+        K = max(data['high'][i] - data['close'][i-1], data['low'][i] - data['close'][i-1])
+        R = data['high'][i] - data['low'][i]
+        C = data['close'][i] - data['close'][i-1]
+        O = data['Open'][i] - data['close'][i-1]
+        
+        if K != 0:
+            SI = (C + 0.5 * R + 0.25 * (data['close'][i-1] - data['Open'][i])) / K
+        else:
+            SI = 0
+        
+        data.loc[i, 'SwingIndex'] = SI
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['SwingIndex'], mode='lines', name='Swing Index'), row=3, col=1)
+
+    return data
+
+
+
 #Schaff Trend Cycle Strategy
 def calculate_stc(data, short_window, long_window, signal_window, cycle_window, fig=None):
     """Calculate the Schaff Trend Cycle (STC) and optionally plot it."""
@@ -1113,4 +1159,105 @@ def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, si
         # Add OBV trace
         fig.add_trace(go.Scatter(x=data['Date'], y=data[obv_col], mode='lines', name='OBV'), row=3, col=1)
         
+    return data
+
+#Senkou Span
+def calculate_ichimoku(data, fig=None):
+    high_9 = data['high'].rolling(window=9).max()
+    low_9 = data['low'].rolling(window=9).min()
+    high_26 = data['high'].rolling(window=26).max()
+    low_26 = data['low'].rolling(window=26).min()
+    high_52 = data['high'].rolling(window=52).max()
+    low_52 = data['low'].rolling(window=52).min()
+
+    data['tenkan_sen'] = (high_9 + low_9) / 2
+    data['kijun_sen'] = (high_26 + low_26) / 2
+    data['senkou_span_a'] = ((data['tenkan_sen'] + data['kijun_sen']) / 2).shift(26)
+    data['senkou_span_b'] = ((high_52 + low_52) / 2).shift(26)
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['senkou_span_a'], mode='lines', name='Senkou Span A'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['senkou_span_b'], mode='lines', name='Senkou Span B'), row=3, col=1)
+
+    return data
+
+#ZgZag Indicator
+
+def calculate_zigzag(data, threshold=5, fig=None):
+    data['zigzag'] = np.nan
+    last_extreme = data['close'].iloc[0]
+    direction = None  # None means no direction, 'up' means looking for local max, 'down' means looking for local min
+
+    for i in range(1, len(data)):
+        price_change = (data['close'].iloc[i] - last_extreme) / last_extreme * 100
+
+        if direction is None:
+            if abs(price_change) > threshold:
+                direction = 'up' if price_change > 0 else 'down'
+                last_extreme = data['close'].iloc[i]
+                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+
+        elif direction == 'up':
+            if price_change < -threshold:
+                direction = 'down'
+                last_extreme = data['close'].iloc[i]
+                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+            elif data['close'].iloc[i] > last_extreme:
+                last_extreme = data['close'].iloc[i]
+                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+
+        elif direction == 'down':
+            if price_change > threshold:
+                direction = 'up'
+                last_extreme = data['close'].iloc[i]
+                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+            elif data['close'].iloc[i] < last_extreme:
+                last_extreme = data['close'].iloc[i]
+                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['zigzag'], mode='lines+markers', name='Zig Zag'), row=3, col=1)
+
+    return data
+
+
+#ATR Strategy
+def calculate_atr(data, window=14, fig=None):
+    data['tr'] = np.maximum(data['high'] - data['low'], np.maximum(abs(data['high'] - data['close'].shift()), abs(data['low'] - data['close'].shift())))
+    data['atr'] = data['tr'].rolling(window=window, min_periods=1).mean()
+
+    data['upper_band'] = data['close'] + data['atr']
+    data['lower_band'] = data['close'] - data['atr']
+def calculate_atr(data, window=14, fig=None):
+    data['tr'] = np.maximum(data['high'] - data['low'], np.maximum(abs(data['high'] - data['close'].shift()), abs(data['low'] - data['close'].shift())))
+    data['atr'] = data['tr'].rolling(window=window, min_periods=1).mean()
+
+    data['upper_band'] = data['close'] + data['atr']
+    data['lower_band'] = data['close'] - data['atr']
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
+
+    return data
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
+
+    return data
+
+
+#Envelope Band
+
+def calculate_envelope_channel(data, window=20, offset=0.02, fig=None):
+    data['ma'] = data['close'].rolling(window=window).mean()
+    data['upper_band'] = data['ma'] * (1 + offset)
+    data['lower_band'] = data['ma'] * (1 - offset)
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['ma'], mode='lines', name='Moving Average'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_band'], mode='lines', name='Upper Band'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
+
     return data

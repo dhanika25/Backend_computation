@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 from Backtesting import utils as btutil
-from Backtesting.Strategies import implement_swing_index
+from Backtesting.Strategies import implement_senkou_span
 from Backtesting import data_retriever_util as dr
 import plotly.io as pio
 
@@ -13,7 +13,7 @@ df = pd.read_sql(query, source_conn, parse_dates=['Date'])
 
 source_conn.close()
 
-result = implement_swing_index(df, toPlot=True)
+result = implement_senkou_span(df, toPlot=True)
 print({
     'Win Rate [%]': result['Win Rate [%]'],
     'Net Profit/Loss [$]': result['Net Profit/Loss [$]'],

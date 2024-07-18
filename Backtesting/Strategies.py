@@ -191,7 +191,7 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig,stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -328,7 +328,7 @@ def implement_stochastic(df, k_window, d_window, toPlot=False, stop_loss_percent
     
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -507,7 +507,7 @@ def implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
     pnl_res = sb_bt.simpleBacktest(df)
 
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
         return pnl_res
 
@@ -577,7 +577,7 @@ def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -643,7 +643,7 @@ def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_per
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -873,7 +873,7 @@ def implement_candlestick_strategy(df, toPlot=False, stop_loss_percentage=0.1):
     pnl_res = sb_bt.simpleBacktest(df)
 
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     
     return pnl_res
@@ -960,7 +960,7 @@ def implement_head_and_shoulders(df, toPlot=False, stop_loss_percentage=0.1):
     pnl_res = sb_bt.simpleBacktest(df)
 
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1008,7 +1008,7 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 #-----------------------------------------------------ELLIOT WAVE STRATEGY-----------------------------------------------------------------------
@@ -1176,18 +1176,18 @@ def implement_flags_pennants(df, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
 # ----------------------------------------------------Triangles-------------------------------------------------------------------
-def implement_triangle_strategy(df, toPlot=False, stop_loss_percentage=0.1):
+def implement_triangle_strategy(df, min_periods, toPlot=False, stop_loss_percentage=0.1):
     
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    # Calculate triangle patterns
-    ndct.calculate_triangle_and_add_trace(df)  
+    # Calculate triangle patterns and add traces
+    ndct.calculate_triangle_and_add_trace(df, min_periods)  
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
@@ -1199,22 +1199,22 @@ def implement_triangle_strategy(df, toPlot=False, stop_loss_percentage=0.1):
         if not isHoldingStock:
             # Entry Condition
             """Buy when the close price breaks above the upper trendline"""
-            if df['close'].iloc[i] > df['upper_trendline'].iloc[i]:
+            if df['close'].iloc[i] > df[f'upper_trendline_{min_periods}'].iloc[i]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
                 isHoldingStock = True
-                buy_price = df['close'].iloc[i]
+                buy_price = df['close'].iloc[i]                
                 continue
 
         else:
             # Exit Condition based on breakout below the lower trendline or stop-loss
             """Sell when the close price breaks below the lower trendline or hits stop-loss"""
-            if df['close'].iloc[i] < df['lower_trendline'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            if df['close'].iloc[i] < df[f'lower_trendline_{min_periods}'].iloc[i] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
-                isHoldingStock = False
+                isHoldingStock = False              
                 continue
 
         buy_signals[i] = float('nan')
@@ -1226,25 +1226,27 @@ def implement_triangle_strategy(df, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_triangle_and_add_trace(df, fig)  
 
-    fig.add_annotation(
-        dict(
-        x=0.5,
-        y=0.285,  # Adjust this value to position the title within the subplot
-        xref='x3 domain',
-        yref='paper',  # Use paper reference for y
-        text="Triangle Strategy",
-        showarrow=False,
-        font=dict(size=16),
-        xanchor='center',
-        yanchor='bottom'
-        )
-    )
+    ndct.calculate_triangle_and_add_trace(df, min_periods, fig)
+
+        # fig.add_annotation(
+        #     dict(
+        #     x=0.5,
+        #     y=0.285,  # Adjust this value to position the title within the subplot
+        #     xref='x3 domain',
+        #     yref='paper',  # Use paper reference for y
+        #     text="Triangle Strategy",
+        #     showarrow=False,
+        #     font=dict(size=16),
+        #     xanchor='center',
+        #     yanchor='bottom'
+        #     )
+        # )
+
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1363,7 +1365,7 @@ def implement_momentum(df, n, stop_loss_percentage, toPlot=False):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig,stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1537,7 +1539,7 @@ def implement_proc_strategy(df, n, stop_loss_percentage, toPlot=False):
     return pnl_res
 
 
-#VORTEX INDICATOR STRATEGY
+#--------------------------------------------------VORTEX INDICATOR STRATEGY------------------------------------------------------
 def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
     """Implements the Vortex Indicator strategy with stop-loss."""
     ticker = df['ticker'].iloc[0]
@@ -1664,7 +1666,7 @@ def implement_roc(df, window, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1739,7 +1741,7 @@ def implement_cci(df, window, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1814,7 +1816,7 @@ def implement_williams_r(df, window, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1887,7 +1889,7 @@ def implement_pivot_points(df, toPlot=False, stop_loss_percentage=0.1):
     pnl_res = sb_bt.simpleBacktest(df)
     # If toPlot is True, add buy/sell signals to the plot
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -1960,7 +1962,7 @@ def implement_atr(df, window, toPlot=False, stop_loss_percentage=0.1):
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -2017,23 +2019,23 @@ def implement_keltner_channels(df, ema_window, atr_window, atr_multiplier, toPlo
     # Plot Keltner Channels if toPlot is True
     ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier, fig)
 
-    fig.add_annotation(
-        dict(
-        x=0.5,
-        y=0.285,  # Adjust this value to position the title within the subplot
-        xref='x3 domain',
-        yref='paper',  # Use paper reference for y
-        text="Keltner Channels",
-        showarrow=False,
-        font=dict(size=16),
-        xanchor='center',
-        yanchor='bottom'
-        )
-    )
+    # fig.add_annotation(
+    #     dict(
+    #     x=0.5,
+    #     y=0.285,  # Adjust this value to position the title within the subplot
+    #     xref='x3 domain',
+    #     yref='paper',  # Use paper reference for y
+    #     text="Keltner Channels",
+    #     showarrow=False,
+    #     font=dict(size=16),
+    #     xanchor='center',
+    #     yanchor='bottom'
+    #     )
+    # )
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
@@ -2106,7 +2108,7 @@ def implement_price_channels(df, window, toPlot=False, stop_loss_percentage=0.1)
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 # #----------------------------------------------------------RVI Strategy-----------------------------------------------------------

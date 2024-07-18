@@ -2,7 +2,7 @@ import plotly.graph_objects as go
 import random
 import pandas as pd
 import numpy as np
-import ta
+# import ta
 
 # import pandas as pd
 
@@ -534,30 +534,29 @@ def calculate_flag_and_add_trace(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_bottom'], mode='lines', name='Flag Bottom'), row=3, col=1)
 
 # Triangles
-def calculate_triangle_and_add_trace(data, fig=None):
-    data['upper_trendline'] = np.nan
-    data['lower_trendline'] = np.nan
+def calculate_triangle_and_add_trace(data, min_periods ,fig=None):
+    data[f'upper_trendline_{min_periods}'] = np.nan
+    data[f'lower_trendline_{min_periods}'] = np.nan
 
-    min_periods = 5  # Number of periods to consider for local minima and maxima
+    # min_periods : Number of periods to consider for local minima and maxima
     
     for i in range(min_periods, len(data) - min_periods):
         local_min = data['close'][i-min_periods:i+min_periods].min()
         local_max = data['close'][i-min_periods:i+min_periods].max()
         
         if data['close'][i] == local_min:
-            data['lower_trendline'][i] = local_min
+            data[f'lower_trendline_{min_periods}'][i] = local_min
         if data['close'][i] == local_max:
-            data['upper_trendline'][i] = local_max
+            data[f'upper_trendline_{min_periods}'][i] = local_max
 
-    data['lower_trendline'] = data['lower_trendline'].interpolate()
-    data['upper_trendline'] = data['upper_trendline'].interpolate()
+    data[f'lower_trendline_{min_periods}'] = data[f'lower_trendline_{min_periods}'].interpolate()
+    data[f'upper_trendline_{min_periods}'] = data[f'upper_trendline_{min_periods}'].interpolate()
     
     if fig:
         # Add upper trendline to the plot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_trendline'], mode='lines', name='Upper Trendline'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_trendline_{min_periods}'], mode='lines', name='Upper Trendline'), row=1, col=1)
         # Add lower trendline to the plot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_trendline'], mode='lines', name='Lower Trendline'), row=3, col=1)
-    
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_trendline_{min_periods}'], mode='lines', name='Lower Trendline'), row=1, col=1)
 
 
 #GANN ANGLES
@@ -786,11 +785,11 @@ def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_m
 
     if fig:
         # Add EMA (middle line) to the plot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'ema_{ema_window}'], mode='lines', name='EMA'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'ema_{ema_window}'], mode='lines', name='EMA'), row=1, col=1)
         # Add Upper Channel line to the plot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_channel'], mode='lines', name='Upper Channel'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_channel'], mode='lines', name='Upper Channel'), row=1, col=1)
         # Add Lower Channel line to the plot
-        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=1, col=1)
 
 
 # Price Channels

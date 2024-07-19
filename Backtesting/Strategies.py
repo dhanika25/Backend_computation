@@ -818,7 +818,7 @@ def implement_cmf(df, stop_loss_percentage, toPlot=False):
 
     if toPlot:
         # Add CMF to the plot
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage=stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         fig.add_trace(go.Scatter(x=df.index, y=df['CMF'], mode='lines', name='CMF', line=dict(color='blue')), row=3, col=1)
         fig.add_annotation(
             dict(

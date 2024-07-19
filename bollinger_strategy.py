@@ -1,4 +1,6 @@
 import sqlite3
+from dotenv import load_dotenv
+import os
 import pandas as pd
 from Backtesting import Backtest as bt, data_retriever_util as dr
 import plotly.graph_objects as go
@@ -8,9 +10,12 @@ from Backtesting import utils as btutil
 from Backtesting import Strategies as st
 
 # Connect to the source SQLite database
-source_db_path = "C:\\Users\\Lenovo\\Downloads\\StockBuddyGenAI\\src\\Data\\NSE_Yahoo_9_FEB_24.sqlite"
-#source_db_path = r"D:\Dkafka\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite"
-#source_db_path = r'C:\Users\burma\OneDrive\Documents\GitHub\StockBuddyGenAI\src\Data\NSE_Yahoo_9_FEB_24.sqlite'
+load_dotenv()
+source_db_path = os.getenv('NSE_DB_PATH')
+
+if source_db_path is None:
+    raise ValueError("NSE_DB_PATH environment variable is not set")
+
 source_conn = sqlite3.connect(source_db_path)
 
 # Read the data into a pandas DataFrame

@@ -6,3 +6,5 @@ Backtesting/__pycache__/
 
 Backtesting/__pycache__/
 *.pyc
+
+.env

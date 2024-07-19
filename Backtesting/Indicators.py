@@ -159,7 +159,7 @@ def calculate_and_add_fibonacci_levels(data, fig=None):
 
     if fig:
         for level, value in levels.items():
-            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=3, col=1)
+            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=1, col=1)
 
 # ADX
 

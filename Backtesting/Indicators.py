@@ -16,6 +16,9 @@ def ma(n, df, fig=None):
     return df
 
 #BOLLINGER STRATEGY
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 def rolling_std(df, window):
     df[f'rolling_std_{window}'] = df['close'].rolling(window=window).std()
 
@@ -38,10 +41,15 @@ def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
         fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name='Upper Band', line=dict(color='red')), row=3, col=1)
         fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name='Lower Band', line=dict(color='blue')), row=3, col=1)
         fig.add_trace(go.Scatter(x=df['Date'], y=df[f'MA_{window}'], mode='lines', name='Moving Average', line=dict(color='green')), row=3, col=1)
-    
-    return df
+        fig.update_layout(height=900, width=900)  # Adjust the figure size as needed
 
-    
+# Example of creating a figure with subplots
+def create_figure_with_subplots():
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                        subplot_titles=("Price", "Bollinger Bands", "MACD"),
+                        vertical_spacing=0.1)
+
+
 
 
 
@@ -112,7 +120,7 @@ def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,
 
 
 #ICHIMOKU
-def calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig=None):
+def cal_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig=None):
     # Tenkan-sen (Conversion Line)
     df['tenkan_sen'] = (df['high'].rolling(window=tenkan_sen_period).max() + df['low'].rolling(window=tenkan_sen_period).min()) / 2
     
@@ -138,7 +146,7 @@ def calculate_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_pe
         fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_b'], mode='lines', name='Senkou Span B', line=dict(color='orange')), row=3, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['chikou_span'], mode='lines', name='Chikou Span', line=dict(color='purple')), row=3, col=1)
 
-    return df
+
 #Fibonacci Retracement
 def calculate_and_add_fibonacci_levels(data, fig=None):
     max_price = data['close'].max()
@@ -437,55 +445,47 @@ def calculate_cmf(data, fig=None):
 
 
 #Heikin Ashi Strategy
+def calculate_heikin_ashi(data):
+    """Calculate the Heikin-Ashi candlesticks and update the DataFrame in place."""
+    heikin_ashi_close = (data['Open'] + data['high'] + data['low'] + data['close']) / 4
+    heikin_ashi_open = [data['Open'].iloc[0]]  # Initialize the first HA open value as the traditional open value
+    heikin_ashi_high = []
+    heikin_ashi_low = []
+
+    for i in range(len(data)):
+        if i > 0:
+            heikin_ashi_open.append((heikin_ashi_open[i-1] + heikin_ashi_close.iloc[i-1]) / 2)
+        heikin_ashi_high.append(max(data['high'].iloc[i], heikin_ashi_open[i], heikin_ashi_close.iloc[i]))
+        heikin_ashi_low.append(min(data['low'].iloc[i], heikin_ashi_open[i], heikin_ashi_close.iloc[i]))
+
+    data['Heikin_Ashi_Open'] = heikin_ashi_open
+    data['Heikin_Ashi_High'] = heikin_ashi_high
+    data['Heikin_Ashi_Low'] = heikin_ashi_low
+    data['Heikin_Ashi_Close'] = heikin_ashi_close
 
 
-def calculate_heikin_ashi(data, fig=None):
-    """Calculate the Heikin-Ashi candlesticks and optionally plot them."""
-    ha_data = data.copy()
-
-    ha_data['HA_Close'] = (data['Open'] + data['high'] + data['low'] + data['close']) / 4
-    ha_data['HA_Open'] = (ha_data['Open'].shift(1) + ha_data['close'].shift(1)) / 2
-    ha_data['HA_Open'].iloc[0] = (data['Open'].iloc[0] + data['close'].iloc[0]) / 2
-    ha_data['HA_High'] = ha_data[['high', 'HA_Open', 'HA_Close']].max(axis=1)
-    ha_data['HA_Low'] = ha_data[['low', 'HA_Open', 'HA_Close']].min(axis=1)
-
-    if fig:
-        # Add Heikin-Ashi candlesticks to the third subplot
-        fig.add_trace(go.Candlestick(x=ha_data['Date'],
-                                     open=ha_data['HA_Open'],
-                                     high=ha_data['HA_High'],
-                                     low=ha_data['HA_Low'],
-                                     close=ha_data['HA_Close'],
-                                     name='Heikin-Ashi'), row=3, col=1)
-
-    return ha_data
 
 #ELLIOT WAVE STRATEGY
-def identify_elliott_wave_patterns(data, fig=None):
+def identify_elliott_wave_patterns(df, fig=None):
     """
     Identify Elliott Wave patterns and optionally plot them.
     """
-    wave_data = data.copy()
-
-    # Placeholder for actual wave pattern identification logic.
-    wave_data['Wave'] = None  # Initialize with None
+    df['Wave'] = None  # Initialize with None
 
     # Simplified pattern identification (for demonstration)
-    for i in range(1, len(wave_data)-1):
-        if wave_data['close'].iloc[i] > wave_data['close'].iloc[i-1] and wave_data['close'].iloc[i] > wave_data['close'].iloc[i+1]:
-            wave_data['Wave'].iloc[i] = 'Impulse'
-        elif wave_data['close'].iloc[i] < wave_data['close'].iloc[i-1] and wave_data['close'].iloc[i] < wave_data['close'].iloc[i+1]:
-            wave_data['Wave'].iloc[i] = 'Corrective'
+    for i in range(1, len(df)-1):
+        if df['close'].iloc[i] > df['close'].iloc[i-1] and df['close'].iloc[i] > df['close'].iloc[i+1]:
+            df['Wave'].iloc[i] = 'Impulse'
+        elif df['close'].iloc[i] < df['close'].iloc[i-1] and df['close'].iloc[i] < df['close'].iloc[i+1]:
+            df['Wave'].iloc[i] = 'Corrective'
     
     if fig:
         # Add wave patterns to the third subplot
-        impulse_wave = wave_data[wave_data['Wave'] == 'Impulse']
-        corrective_wave = wave_data[wave_data['Wave'] == 'Corrective']
+        impulse_wave = df[df['Wave'] == 'Impulse']
+        corrective_wave = df[df['Wave'] == 'Corrective']
         
         fig.add_trace(go.Scatter(x=impulse_wave['Date'], y=impulse_wave['close'], mode='markers+lines', name='Impulse Wave', line=dict(color='blue')), row=3, col=1)
         fig.add_trace(go.Scatter(x=corrective_wave['Date'], y=corrective_wave['close'], mode='markers+lines', name='Corrective Wave', line=dict(color='red')), row=3, col=1)
-    
-    return wave_data
 
 #DONCHIAN CHANNEL STARTEGY
 def calculate_donchian_channels(data, n, fig=None):
@@ -560,9 +560,6 @@ def calculate_triangle_and_add_trace(data, min_periods ,fig=None):
 
 
 #GANN ANGLES
-import plotly.graph_objs as go
-import numpy as np
-
 def calculate_gann_angles(data, key_price_points, angles, fig=None):
     """Calculate and plot Gann Angles from key price points."""
     for key_price in key_price_points:
@@ -573,9 +570,8 @@ def calculate_gann_angles(data, key_price_points, angles, fig=None):
             data[f'Gann_{angle}_{key_price}'] = gann_line
             
             if fig:
-                # Add Gann Angle line to the chart
-                fig.add_trace(go.Scatter(x=data['Date'], y=gann_line, mode='lines', name=f'Gann {angle}° from {key_price}'))
-
+                # Add Gann Angle line to the third subplot
+                fig.add_trace(go.Scatter(x=data['Date'], y=gann_line, mode='lines', name=f'Gann {angle}° from {key_price}'), row=3, col=1)
 
 
 #MOMENTUM INDICATOR
@@ -585,8 +581,9 @@ def calculate_momentum(data, n, fig=None):
     data['Momentum'] = momentum
     
     if fig:
-        # Add Momentum line to the chart
+        # Add Momentum line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Momentum'], mode='lines', name='Momentum'), row=3, col=1)
+
 
 
 #MONEY FLOW INDEX
@@ -1105,8 +1102,6 @@ def calculate_swing_index(data, limit_move=0.05, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['SwingIndex'], mode='lines', name='Swing Index'), row=3, col=1)
 
 
-
-
 #Schaff Trend Cycle Strategy
 def calculate_stc(data, short_window, long_window, signal_window, cycle_window, fig=None):
     """Calculate the Schaff Trend Cycle (STC) and optionally plot it."""
@@ -1142,6 +1137,13 @@ def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, si
     data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
     data[histogram_col] = data[macd_col] - data[signal_col]
     
+    if fig:
+        # Add MACD, Signal Line, and Histogram to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+
+    
     # Calculate RSI
     delta = data['close'].diff()
     gain = delta.where(delta > 0, 0)
@@ -1168,8 +1170,7 @@ def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, si
         
         # Add OBV trace
         fig.add_trace(go.Scatter(x=data['Date'], y=data[obv_col], mode='lines', name='OBV'), row=3, col=1)
-        
-    return data
+
 
 #Senkou Span
 def calculate_ichimoku(data, fig=None):

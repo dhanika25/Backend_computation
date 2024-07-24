@@ -3,6 +3,7 @@ from Backtesting import Indicators as ndct
 from Backtesting import utils as btutil
 from Backtesting import Backtest as sb_bt
 import pandas as pd
+import math
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
@@ -132,8 +133,8 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
 
     # For calling the calculate_macd_and_add_trace(), fig is not passed if the indicators are to be calculated and fig is passed if the indicators are to be traced.
     #print("Printing data121333:",df)
-    ndct.calculate_macd_and_add_trace(df, short_window, long_window, signal_window)  # Calculate MACD within this function
-
+    # ndct.calculate_macd_and_add_trace(df, short_window, long_window, signal_window)  # Calculate MACD within this function
+    ndct.calculate_macd_and_add_trace_incremental(df, short_window, long_window, signal_window)
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
@@ -188,8 +189,8 @@ def implement_macd(df, short_window, long_window, signal_window, toPlot=False, s
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_macd_and_add_trace(df, short_window, long_window,signal_window,fig) #Traces the MACD graph
-
+    # ndct.calculate_macd_and_add_trace(df, short_window, long_window,signal_window,fig) #Traces the MACD graph
+    ndct.calculate_macd_and_add_trace_incremental(df, short_window, long_window,signal_window,fig)
     fig.add_annotation(
         dict(
         x=0.5,
@@ -284,8 +285,9 @@ def implement_stochastic(df, k_window, d_window, toPlot=False, stop_loss_percent
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
     
-    # Calculate Stochastic Oscillator
-    ndct.calculate_and_add_trace_stochastic_oscillator(df, k_window, d_window)
+    # Calculate Stochastic 
+    # ndct.calculate_and_add_trace_stochastic_oscillator(df,k_window, d_window) 
+    ndct.calculate_and_add_trace_stochastic_oscillator_incremental(df, k_window, d_window)
     
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
@@ -325,7 +327,8 @@ def implement_stochastic(df, k_window, d_window, toPlot=False, stop_loss_percent
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
     
-    ndct.calculate_and_add_trace_stochastic_oscillator(df,k_window, d_window, fig)  # Add stochastic trace to the graph
+    # ndct.calculate_and_add_trace_stochastic_oscillator(df,k_window, d_window, fig) 
+    ndct.calculate_and_add_trace_stochastic_oscillator_incremental(df,k_window, d_window, fig)  # Add stochastic trace to the graph
 
     fig.add_annotation(
         dict(
@@ -495,6 +498,10 @@ def implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
 
     ndct.calculate_and_add_fibonacci_levels(df)
 
+    # Calculate Fibonacci levels if they are not already present
+    if not any(col.startswith('fibo_') for col in df.columns):
+        ndct.calculate_and_add_fibonacci_levels_incremental(df)
+
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
     triggers = ['H'] * len(df)
@@ -529,29 +536,17 @@ def implement_fibonacci(df, toPlot=False, stop_loss_percentage=0.1):
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
-
-    ndct.calculate_and_add_fibonacci_levels(df, fig)
-
-    # fig.add_annotation(
-    #     dict(
-    #     x=0.5,
-    #     y=0.285,  # Adjust this value to position the title within the subplot
-    #     xref='x3 domain',
-    #     yref='paper',  # Use paper reference for y
-    #     text="Fibonacci Retracement",
-    #     showarrow=False,
-    #     font=dict(size=16),
-    #     xanchor='center',
-    #     yanchor='bottom'
-    #     )
-    # )
-
+    
+    # ndct.calculate_and_add_fibonacci_levels(df, fig)   
+    ndct.calculate_and_add_fibonacci_levels_incremental(df, fig)   
     pnl_res = sb_bt.simpleBacktest(df)
 
+    # Add Fibonacci levels to the graph if plotting
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
-        return pnl_res
+    return pnl_res
+
 
 # ----------------------------------------------------ADX-------------------------------------------------------------------------
 
@@ -560,7 +555,8 @@ def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
     
     # Calculate ADX within this function
-    ndct.calculate_adx_and_add_trace(df, period)  
+    # ndct.calculate_adx_and_add_trace(df, period)  
+    ndct.calculate_adx_and_add_trace_incremental(df, period)  
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -601,8 +597,8 @@ def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
     df['Trigger'] = triggers
 
   
-    ndct.calculate_adx_and_add_trace(df, period, fig)  # Trace the ADX graph
-
+    # ndct.calculate_adx_and_add_trace(df, period, fig)  # Trace the ADX graph
+    ndct.calculate_adx_and_add_trace_incremental(df, period, fig)
     fig.add_annotation(
         dict(
         x=0.5,
@@ -623,22 +619,29 @@ def implement_adx(df, period=14, toPlot=False, stop_loss_percentage=0.1):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
-# ---------------------------------------Parabolic SAR----------------------------------------------------------------------------
 
+# ---------------------------------------Parabolic SAR----------------------------------------------------------------------------
 def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_percentage=0.1):
-    
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af)  # Calculate Parabolic SAR and add to plot if fig is provided
+    # Calculate Parabolic SAR incrementally
+    # ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af) 
+    ndct.calculate_parabolic_sar_and_add_trace_incremental(df, af, max_af) 
+    buy_signals = df.get('buy_signal', [float('nan')] * len(df))
+    sell_signals = df.get('sell_signal', [float('nan')] * len(df))
+    triggers = df.get('Trigger', ['H'] * len(df))
+    
+    isHoldingStock = 'S' not in triggers and 'B' in triggers
+    buy_price = df['close'][triggers.index('B')] if isHoldingStock else 0
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
-    isHoldingStock = False
-    buy_price = 0
+    # Find the start index for new calculations
+    try:
+        start_index = next(i for i, x in enumerate(buy_signals) if math.isnan(x))
+    except StopIteration:
+        start_index = len(buy_signals)
 
-    for i in range(1, len(df)):
+    for i in range(start_index, len(df)):
         if not isHoldingStock:
             # Entry Condition: Buy when the SAR is below the price
             if df['parabolic_sar'].iloc[i] < df['close'].iloc[i]:
@@ -667,8 +670,8 @@ def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_per
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af, fig)
-
+    # ndct.calculate_parabolic_sar_and_add_trace(df, af, max_af, fig)
+    ndct.calculate_parabolic_sar_and_add_trace_incremental(df, af, max_af, fig)
     fig.add_annotation(
         dict(
         x=0.5,
@@ -685,11 +688,9 @@ def implement_parabolic_sar(df, af=0.02, max_af=0.2, toPlot=False, stop_loss_per
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
-
-
 #-----------------------------------------VPT STRATEGY-----------------------------------------------------------------------------------
 def implement_vpt(df, stop_loss_percentage, toPlot=False):
     """Implements the VPT strategy with stop-loss."""
@@ -936,15 +937,22 @@ def implement_candlestick_strategy(df, toPlot=False, stop_loss_percentage=0.1):
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    ndct.find_and_plot_candlestick_patterns(df)
+    # ndct.find_and_plot_candlestick_patterns(df)
+    ndct.find_and_plot_candlestick_patterns_incremental(df)
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
+    buy_signals = df.get('buy_signal', [float('nan')] * len(df))
+    sell_signals = df.get('sell_signal', [float('nan')] * len(df))
+    triggers = df.get('Trigger', ['H'] * len(df))
     isHoldingStock = False
     buy_price = 0
 
-    for i in range(1, len(df)):
+    latest_date = df['Date'].max()
+    start_index = 0
+    if 'Trigger' in df.columns and df['Trigger'].notna().any():
+        latest_signal_date = df.loc[df['Trigger'] != 'H', 'Date'].max()
+        start_index = df[df['Date'] == latest_signal_date].index[0] + 1
+
+    for i in range(start_index, len(df)):
         if not isHoldingStock:
             # Entry Conditions: Bullish Patterns
             if df['candlestick_pattern'].iloc[i] in ['hammer', 'bullish_engulfing']:
@@ -971,27 +979,25 @@ def implement_candlestick_strategy(df, toPlot=False, stop_loss_percentage=0.1):
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
-
-    ndct.find_and_plot_candlestick_patterns(df,fig)
-
+    # ndct.find_and_plot_candlestick_patterns(df, fig)
+    ndct.find_and_plot_candlestick_patterns_incremental(df, fig)
     fig.add_annotation(
         dict(
         x=0.5,
         y=0.285,  # Adjust this value to position the title within the subplot
         xref='x3 domain',
         yref='paper',  # Use paper reference for y
-        text="Candlestick Patterns",
+        text="Candlestick Pattern",
         showarrow=False,
         font=dict(size=16),
         xanchor='center',
         yanchor='bottom'
         )
     )
-
     pnl_res = sb_bt.simpleBacktest(df)
 
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     
     return pnl_res
@@ -1005,37 +1011,41 @@ def implement_head_and_shoulders(df, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Head and Shoulders pattern
-    ndct.calculate_head_and_shoulders(df)
+    # ndct.calculate_head_and_shoulders(df)
+    ndct.calculate_head_and_shoulders_incremental(df)
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
+    buy_signals = df['buy_signal'].tolist() if 'buy_signal' in df.columns else [float('nan')] * len(df)
+    sell_signals = df['sell_signal'].tolist() if 'sell_signal' in df.columns else [float('nan')] * len(df)
+    triggers = df['Trigger'].tolist() if 'Trigger' in df.columns else ['H'] * len(df)
     isHoldingStock = False
     buy_price = 0
 
     # Make sure neckline_level is not None
     peaks = df[df['peak']]
-    troughs = df[df['trough']]
     head = None
-    neckline = None
-    
     for i in range(1, len(peaks) - 1):
         if peaks['close'].iloc[i-1] < peaks['close'].iloc[i] and peaks['close'].iloc[i+1] < peaks['close'].iloc[i]:
             head = peaks.iloc[i]
             break
     
     if head is not None:
+        troughs = df[df['trough']]
+        neckline = None
         for i in range(len(troughs) - 1):
             if troughs['Date'].iloc[i] < head['Date'] and troughs['Date'].iloc[i+1] > head['Date']:
                 neckline = (troughs.iloc[i], troughs.iloc[i+1])
                 break
-    
+    else:
+        neckline = None
+
     if neckline is not None:
         neckline_level = (neckline[0]['close'] + neckline[1]['close']) / 2
     else:
         neckline_level = None
 
-    for i in range(1, len(df)):
+    start_idx = len(df.dropna(subset=['buy_signal', 'sell_signal'])) if 'buy_signal' in df.columns else 1
+
+    for i in range(start_idx, len(df)):
         if isHoldingStock:
             # Exit condition
             if neckline_level is not None and (df['close'].iloc[i] < neckline_level or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
@@ -1059,55 +1069,66 @@ def implement_head_and_shoulders(df, toPlot=False, stop_loss_percentage=0.1):
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
-
-    ndct.calculate_head_and_shoulders(df, fig)
+    # ndct.calculate_head_and_shoulders(df,fig)
+    ndct.calculate_head_and_shoulders_incremental(df,fig)
     fig.add_annotation(
         dict(
         x=0.5,
         y=0.285,  # Adjust this value to position the title within the subplot
         xref='x3 domain',
         yref='paper',  # Use paper reference for y
-        text="Head and Shoulders",
+        text="Head and Shoulder",
         showarrow=False,
         font=dict(size=16),
         xanchor='center',
         yanchor='bottom'
         )
     )
-
     pnl_res = sb_bt.simpleBacktest(df)
 
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+
     return pnl_res
 
 # ---------------------------------------------------Double Top/Down----------------------------------------------------------------
 def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
+    """Implements Double Top/Bottom strategy"""
+
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    ndct.identify_double_top_bottom(df)  # Identify Double Top/Bottom within this function
+    # Detect Double Top/Bottom within this function
+    # ndct.identify_double_top_bottom(df, fig)
+    ndct.identify_double_top_bottom_incremental(df,fig)
 
-    buy_signals = [float('nan')] * len(df)
-    sell_signals = [float('nan')] * len(df)
-    triggers = ['H'] * len(df)
-    isHoldingStock = False
-    buy_price = 0
+    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
+    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
+    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
+    isHoldingStock = False  # None means no isHoldingStock, 1 means holding stock, 0 means not holding stock
+    buy_price = 0  # Track the price at which the stock was bought
 
     for i in range(1, len(df)):
         if not isHoldingStock:
-            # Entry Condition for Double Bottom
-            if not pd.isna(df['double_bottom'].iloc[i]):
+            # Entry Condition
+            """Buy when the price breaks above the peak of a double bottom pattern"""
+
+            if pd.notna(df['double_bottom'].iloc[i]) and df['close'].iloc[i] > df['double_bottom'].iloc[i]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
                 isHoldingStock = True
                 buy_price = df['close'].iloc[i]
                 continue
+
         else:
-            # Exit Condition for Double Top and Stop-loss
-            if not pd.isna(df['double_top'].iloc[i]) or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
+            # Exit Condition based on Double Top and Stop-loss
+            """Sell when the price breaks below the trough of a double top pattern or
+            close price is less than stop-loss line"""
+
+            if pd.notna(df['double_top'].iloc[i]) and df['close'].iloc[i] < df['double_top'].iloc[i] or \
+               df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
@@ -1118,15 +1139,18 @@ def implement_double_top_bottom(df, toPlot=False, stop_loss_percentage=0.1):
         sell_signals[i] = float('nan')
         triggers[i] = 'H'
 
+    # Assign lists to df columns
     df['buy_signal'] = buy_signals
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.identify_double_top_bottom(df, fig)  # Trace the Double Top/Bottom graph
+    # Recalculate the indicators only for the new data and update the plot
+    # ndct.identify_double_top_bottom(df, fig)
+    ndct.identify_double_top_bottom_incremental(df, fig)
 
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 #-----------------------------------------------------ELLIOT WAVE STRATEGY-----------------------------------------------------------------------
@@ -1265,8 +1289,9 @@ def implement_flags_pennants(df, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate flag patterns
-    ndct.calculate_flag_and_add_trace(df)  
-
+    latest_date = df['Date'].max() if 'flag_top' in df.columns and df['flag_top'].notna().any() else None
+    # ndct.calculate_flag_and_add_trace(df, start_date=latest_date)  
+    ndct.calculate_flag_and_add_trace_incremental(df, start_date=latest_date) 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
@@ -1304,8 +1329,8 @@ def implement_flags_pennants(df, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_flag_and_add_trace(df,fig)  
-
+    # ndct.calculate_flag_and_add_trace(df, fig, start_date=latest_date)  
+    ndct.calculate_flag_and_add_trace_incremental(df, fig, start_date=latest_date) 
     fig.add_annotation(
         dict(
         x=0.5,
@@ -1326,6 +1351,7 @@ def implement_flags_pennants(df, toPlot=False, stop_loss_percentage=0.1):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
 
+
 # ----------------------------------------------------Triangles-------------------------------------------------------------------
 def implement_triangle_strategy(df, min_periods, toPlot=False, stop_loss_percentage=0.1):
     
@@ -1333,8 +1359,8 @@ def implement_triangle_strategy(df, min_periods, toPlot=False, stop_loss_percent
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate triangle patterns and add traces
-    ndct.calculate_triangle_and_add_trace(df, min_periods)  
-
+    # ndct.calculate_triangle_and_add_trace(df, min_periods)  
+    ndct.calculate_triangle_and_add_trace_incremental(df, min_periods) 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of dfFrame length
@@ -1373,29 +1399,13 @@ def implement_triangle_strategy(df, min_periods, toPlot=False, stop_loss_percent
     df['Trigger'] = triggers
 
 
-    ndct.calculate_triangle_and_add_trace(df, min_periods, fig)
-
-        # fig.add_annotation(
-        #     dict(
-        #     x=0.5,
-        #     y=0.285,  # Adjust this value to position the title within the subplot
-        #     xref='x3 domain',
-        #     yref='paper',  # Use paper reference for y
-        #     text="Triangle Strategy",
-        #     showarrow=False,
-        #     font=dict(size=16),
-        #     xanchor='center',
-        #     yanchor='bottom'
-        #     )
-        # )
-
-
+    # ndct.calculate_triangle_and_add_trace(df, min_periods, fig)
+    ndct.calculate_triangle_and_add_trace_incremental(df, min_periods, fig)
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
-
 #--------------------------------------------------------GANN ANGLES--------------------------------------------------------------------------------
 def implement_gann_angles(df, key_price_points, angles, stop_loss_percentage, toPlot=False):
     """Implements the Gann Angles strategy with stop-loss."""
@@ -1826,36 +1836,43 @@ def implement_roc(df, window, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate ROC within this function
-    ndct.calculate_roc_and_add_trace(df, window)  # Calculate ROC within this function
+    # ndct.calculate_roc_and_add_trace(df, window, fig) 
+    ndct.calculate_roc_and_add_trace_incremental(df, window,fig)  # Calculate ROC within this function
 
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
-    isHoldingStock = False  # None means not holding stock, True means holding stock
-    buy_price = 0  # Track the price at which the stock was bought
-
+    # Initialize buy_signals, sell_signals, and triggers columns if they do not exist
+    if 'buy_signal' not in df.columns:
+        df['buy_signal'] = float('nan')
+    if 'sell_signal' not in df.columns:
+        df['sell_signal'] = float('nan')
+    if 'Trigger' not in df.columns:
+        df['Trigger'] = 'H'
+    
+    buy_signals = df['buy_signal'].tolist()
+    sell_signals = df['sell_signal'].tolist()
+    triggers = df['Trigger'].tolist()
+    
     # Properly format the column name
     roc_col = f'roc_{window}'
 
-    for i in range(window, len(df)):
+    last_defined_date = df[df['buy_signal'].notna() | df['sell_signal'].notna()]['Date'].max()
+    start_idx = df[df['Date'] > last_defined_date].index[0] if not pd.isnull(last_defined_date) else window
+
+    isHoldingStock = False
+    buy_price = 0
+
+    for i in range(start_idx, len(df)):
         if not isHoldingStock:
             # Entry Condition
-            """Buy when ROC is positive and rising"""
-
-            if (df[roc_col].iloc[i] > 0 and df[roc_col].iloc[i] > df[roc_col].iloc[i - 1]):
+            if df[roc_col].iloc[i] > 0 and df[roc_col].iloc[i] > df[roc_col].iloc[i - 1]:
                 buy_signals[i] = df['close'].iloc[i]
                 sell_signals[i] = float('nan')
                 triggers[i] = 'B'
                 isHoldingStock = True
                 buy_price = df['close'].iloc[i]
                 continue
-
         else:
             # Exit Condition based on ROC and Stop-loss
-            """Sell when ROC is negative and falling, or close price is less than stop-loss line"""
-
-            if (df[roc_col].iloc[i] < 0 and df[roc_col].iloc[i] < df[roc_col].iloc[i - 1] or
-                df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage)):
+            if df[roc_col].iloc[i] < 0 and df[roc_col].iloc[i] < df[roc_col].iloc[i - 1] or df['close'].iloc[i] < buy_price * (1 - stop_loss_percentage):
                 buy_signals[i] = float('nan')
                 sell_signals[i] = df['close'].iloc[i]
                 triggers[i] = 'S'
@@ -1871,7 +1888,6 @@ def implement_roc(df, window, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_roc_and_add_trace(df, window, fig)  # Trace the ROC graph
 
     fig.add_annotation(
         dict(
@@ -1886,12 +1902,12 @@ def implement_roc(df, window, toPlot=False, stop_loss_percentage=0.1):
         yanchor='bottom'
         )
     )
-
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
-        fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
+        fig = btutil.addBuySell2Graph(df, fig)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
+
 
 # ------------------------------------------------Commodity Channel Index----------------------------------------------------------
 def implement_cci(df, window, toPlot=False, stop_loss_percentage=0.1):
@@ -1901,8 +1917,8 @@ def implement_cci(df, window, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate CCI within this function
-    ndct.calculate_cci_and_add_trace(df, window)  # Calculate CCI within this function
-
+    # ndct.calculate_cci_and_add_trace(df, window, fig)  # Calculate CCI within this function
+    ndct.calculate_cci_and_add_trace_incremental(df, window, fig) 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     triggers = ['H'] * len(df)  # Initialize with 'H' of df length
@@ -1946,7 +1962,9 @@ def implement_cci(df, window, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_cci_and_add_trace(df, window, fig)  # Trace the CCI graph
+    # Calculate CCI and add trace to the graph again after updating signals
+    # ndct.calculate_cci_and_add_trace(df, window, fig)  # Trace the CCI graph
+    ndct.calculate_cci_and_add_trace_incremental(df, window, fig)
 
     fig.add_annotation(
         dict(
@@ -1976,8 +1994,8 @@ def implement_williams_r(df, window, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Williams %R within this function
-    ndct.calculate_williams_r_and_add_trace(df, window)  # Calculate Williams %R within this function
-
+    ndct.calculate_williams_r_and_add_trace(df, window)  # Calculate Williams %R incrementally
+    ndct.calculate_williams_r_and_add_trace_incremental(df, window) 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     triggers = ['H'] * len(df)  # Initialize with 'H' of df length
@@ -2021,8 +2039,8 @@ def implement_williams_r(df, window, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_williams_r_and_add_trace(df, window, fig)  # Trace the Williams %R graph
-
+    # ndct.calculate_williams_r_and_add_trace(df, window,fig)
+    ndct.calculate_williams_r_and_add_trace_incremental(df, window,fig)  
     fig.add_annotation(
         dict(
         x=0.5,
@@ -2042,7 +2060,6 @@ def implement_williams_r(df, window, toPlot=False, stop_loss_percentage=0.1):
         fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
     return pnl_res
-
 # -------------------------------------------------Pivot Points------------------------------------------------------------------
 def implement_pivot_points(df, toPlot=False, stop_loss_percentage=0.1):
     """Implements a trading strategy based on pivot points, support, and resistance levels."""
@@ -2051,7 +2068,8 @@ def implement_pivot_points(df, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate pivot points and add trace to the figure if toPlot is True
-    ndct.calculate_pivot_points_and_add_trace(df)
+    # ndct.calculate_pivot_points_and_add_trace(df)
+    ndct.calculate_pivot_points_and_add_trace_incremental(df)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of dfFrame length
@@ -2093,7 +2111,8 @@ def implement_pivot_points(df, toPlot=False, stop_loss_percentage=0.1):
     df['sell_signal'] = sell_signals
     df['Trigger'] = triggers
 
-    ndct.calculate_pivot_points_and_add_trace(df, fig)
+    # ndct.calculate_pivot_points_and_add_trace(df, fig)
+    ndct.calculate_pivot_points_and_add_trace_incremental(df, fig)
 
     fig.add_annotation(
         dict(
@@ -2125,18 +2144,22 @@ def implement_atr(df, window, toPlot=False, stop_loss_percentage=0.1):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate ATR within this function
-    ndct.calculate_atr_and_add_trace(df, window)
+    # ndct.calculate_atr_and_add_trace(df, window)
+    ndct.calculate_atr_and_add_trace_incremental(df, window)
 
-    buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
-    triggers = ['H'] * len(df)  # Initialize with 'H' of df length
+    buy_signals = df['buy_signal'].tolist() if 'buy_signal' in df.columns else [float('nan')] * len(df)
+    sell_signals = df['sell_signal'].tolist() if 'sell_signal' in df.columns else [float('nan')] * len(df)
+    triggers = df['Trigger'].tolist() if 'Trigger' in df.columns else ['H'] * len(df)
+
     isHoldingStock = False
     buy_price = 0
 
     # Properly format the column name
     atr_col = f'atr_{window}'
 
-    for i in range(1, len(df)):
+    start_index = df[df[atr_col].notna()].index[-1] + 1 if atr_col in df.columns and df[atr_col].notna().any() else 1
+
+    for i in range(start_index, len(df)):
         if not isHoldingStock:
             # Entry Condition
             """Buy when ATR is increasing (current ATR > previous ATR)"""
@@ -2167,8 +2190,8 @@ def implement_atr(df, window, toPlot=False, stop_loss_percentage=0.1):
     df['Trigger'] = triggers
 
     # Plot ATR if toPlot is True
-    ndct.calculate_atr_and_add_trace(df, window, fig)
-
+    # ndct.calculate_atr_and_add_trace(df, window, fig)
+    ndct.calculate_atr_and_add_trace_incremental(df, window, fig)
     fig.add_annotation(
         dict(
         x=0.5,
@@ -2197,8 +2220,8 @@ def implement_keltner_channels(df, ema_window, atr_window, atr_multiplier, toPlo
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Keltner Channels within this function
-    ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier)
-
+    # ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier)
+    ndct.calculate_keltner_channels_and_add_trace_incremental(df, ema_window, atr_window, atr_multiplier)
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     triggers = ['H'] * len(df)  # Initialize with 'H' of df length
@@ -2240,22 +2263,8 @@ def implement_keltner_channels(df, ema_window, atr_window, atr_multiplier, toPlo
     df['Trigger'] = triggers
 
     # Plot Keltner Channels if toPlot is True
-    ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier, fig)
-
-    # fig.add_annotation(
-    #     dict(
-    #     x=0.5,
-    #     y=0.285,  # Adjust this value to position the title within the subplot
-    #     xref='x3 domain',
-    #     yref='paper',  # Use paper reference for y
-    #     text="Keltner Channels",
-    #     showarrow=False,
-    #     font=dict(size=16),
-    #     xanchor='center',
-    #     yanchor='bottom'
-    #     )
-    # )
-
+    # ndct.calculate_keltner_channels_and_add_trace(df, ema_window, atr_window, atr_multiplier, fig)
+    ndct.calculate_keltner_channels_and_add_trace_incremental(df, ema_window, atr_window, atr_multiplier, fig)
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
@@ -2269,9 +2278,15 @@ def implement_price_channels(df, window, toPlot=False, stop_loss_percentage=0.1)
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
-    # Calculate Price Channels within this function
-    ndct.calculate_price_channels_and_add_trace(df, window)
-
+    # Check the last date for which the Price Channels are calculated
+    last_calculated_date = None
+    if 'upper_channel' in df.columns and 'lower_channel' in df.columns:
+        non_na_upper = df.dropna(subset=['upper_channel'])
+        if not non_na_upper.empty:
+            last_calculated_date = non_na_upper.iloc[-1]['Date']
+    
+    # ndct.calculate_price_channels_and_add_trace(df, window, start_date=last_calculated_date)
+    ndct.calculate_price_channels_and_add_trace_incremental(df, window, start_date=last_calculated_date)
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of df length
     triggers = ['H'] * len(df)  # Initialize with 'H' of df length
@@ -2313,8 +2328,8 @@ def implement_price_channels(df, window, toPlot=False, stop_loss_percentage=0.1)
     df['Trigger'] = triggers
 
     # Plot Price Channels if toPlot is True
-    ndct.calculate_price_channels_and_add_trace(df, window, fig)
-
+    # ndct.calculate_price_channels_and_add_trace(df, window, start_date=last_calculated_date, fig)
+    ndct.calculate_price_channels_and_add_trace_incremental(df, window, start_date=last_calculated_date, fig=fig)
     fig.add_annotation(
         dict(
         x=0.5,
@@ -2332,8 +2347,9 @@ def implement_price_channels(df, window, toPlot=False, stop_loss_percentage=0.1)
     pnl_res = sb_bt.simpleBacktest(df)
     if toPlot:
         fig = btutil.addBuySell2Graph(df, fig, stop_loss_percentage)
-        pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
+        pnl_res["plotlyJson"] = pio.to_json(fig,pretty=True)
     return pnl_res
+
 # #----------------------------------------------------------RVI Strategy-----------------------------------------------------------
 
 def implement_RVI(data, toPlot=False):

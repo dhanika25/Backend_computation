@@ -79,7 +79,46 @@ def calculate_macd_and_add_trace(data, short_window=12, long_window=26, signal_w
         # Add MACD histogram to the third subplot
         fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
         
-    
+# Define the ema_column function to calculate and append the EMA column to the data DataFrame.
+def ema_column_incremental(data, i):
+    ema_col = f'ema_{i}'
+    if ema_col in data.columns:
+        last_date = data.dropna(subset=[ema_col]).index[-1]
+        data.loc[last_date:, ema_col] = data['close'].loc[last_date:].ewm(span=i, adjust=False).mean()
+    else:
+        data[ema_col] = data['close'].ewm(span=i, adjust=False).mean()
+
+# Define the calculate_macd_and_add_trace function to calculate MACD, signal line, and histogram, and optionally add traces to the provided figure.
+def calculate_macd_and_add_trace_incremental(data, short_window=12, long_window=26, signal_window=9, fig=None):
+    # Calculate the EMAs
+    ema_column(data, short_window)
+    ema_column(data, long_window)
+
+    # Define column names for MACD, signal line, and histogram
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+
+    if macd_col in data.columns:
+        last_date = data.dropna(subset=[macd_col]).index[-1]
+        data.loc[last_date:, macd_col] = data[f'ema_{short_window}'].loc[last_date:] - data[f'ema_{long_window}'].loc[last_date:]
+    else:
+        data[macd_col] = data[f'ema_{short_window}'] - data[f'ema_{long_window}']
+
+    if signal_col in data.columns:
+        last_date = data.dropna(subset=[signal_col]).index[-1]
+        data.loc[last_date:, signal_col] = data[macd_col].loc[last_date:].ewm(span=signal_window, adjust=False).mean()
+    else:
+        data[signal_col] = data[macd_col].ewm(span=signal_window, adjust=False).mean()
+
+    data[histogram_col] = data[macd_col] - data[signal_col]
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+
+
 #RSI Strategy
 
 def calculate_RSI(data, window=14,fig=None):
@@ -117,6 +156,36 @@ def calculate_and_add_trace_stochastic_oscillator(data, k_window=14, d_window=3,
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%K_{k_window}_{d_window}'], mode='lines', name=f'%K_{k_window}_{d_window}'), row=3, col=1)
         # Add %D line to the subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'%D_{k_window}_{d_window}'], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)
+
+def calculate_and_add_trace_stochastic_oscillator_incremental(data, k_window=14, d_window=3, fig=None):
+    low_col = f'lowest_flow_{k_window}_{d_window}'
+    high_col = f'highest_hfigh_{k_window}_{d_window}'
+    k_col = f'%K_{k_window}_{d_window}'
+    d_col = f'%D_{k_window}_{d_window}'
+
+    if low_col in data.columns:
+        last_date = data.dropna(subset=[low_col]).index[-1]
+        data.loc[last_date:, low_col] = data['low'].loc[last_date:].rolling(window=k_window).min()
+    else:
+        data[low_col] = data['low'].rolling(window=k_window).min()
+
+    if high_col in data.columns:
+        last_date = data.dropna(subset=[high_col]).index[-1]
+        data.loc[last_date:, high_col] = data['high'].loc[last_date:].rolling(window=k_window).max()
+    else:
+        data[high_col] = data['high'].rolling(window=k_window).max()
+
+    data[k_col] = 100 * ((data['close'] - data[low_col]) / (data[high_col] - data[low_col]))
+
+    if d_col in data.columns:
+        last_date = data.dropna(subset=[d_col]).index[-1]
+        data.loc[last_date:, d_col] = data[k_col].loc[last_date:].rolling(window=d_window).mean()
+    else:
+        data[d_col] = data[k_col].rolling(window=d_window).mean()
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[k_col], mode='lines', name=f'%K_{k_window}_{d_window}'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[d_col], mode='lines', name=f'%D_{k_window}_{d_window}'), row=3, col=1)
 
 
 #ICHIMOKU
@@ -169,6 +238,28 @@ def calculate_and_add_fibonacci_levels(data, fig=None):
         for level, value in levels.items():
             fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=1, col=1)
 
+def calculate_and_add_fibonacci_levels_incremental(data, fig=None):
+    max_price = data['close'].max()
+    min_price = data['close'].min()
+
+    diff = max_price - min_price
+    levels = {
+        '0%': max_price,
+        '23.6%': max_price - 0.236 * diff,
+        '38.2%': max_price - 0.382 * diff,
+        '50%': max_price - 0.5 * diff,
+        '61.8%': max_price - 0.618 * diff,
+        '100%': min_price
+    }
+
+    for level, value in levels.items():
+        data[f'fibo_{level}'] = value
+
+    if fig:
+        for level, value in levels.items():
+            fig.add_hline(y=value, line_dash="dash", line_color="blue", annotation_text=f"Fibo {level}", row=1, col=1)
+
+
 # ADX
 
 def calculate_adx_and_add_trace(data, period=14, fig=None):
@@ -185,6 +276,45 @@ def calculate_adx_and_add_trace(data, period=14, fig=None):
     
     # Calculate ADX
     data['adx'] = 100 * (data['+DI'] - data['-DI']).abs().rolling(window=period).mean()
+
+    # Add traces to the figure if provided
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['adx'], mode='lines', name='ADX'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['+DI'], mode='lines', name='+DI'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['-DI'], mode='lines', name='-DI'), row=3, col=1)
+
+
+def calculate_adx_and_add_trace_incremental(data, period=14, fig=None):
+    # Check if ADX values already exist in the data
+    if 'adx' in data.columns:
+        last_defined_index = data[data['adx'].notna()].index[-1]
+        new_data = data.loc[last_defined_index + 1:]
+    else:
+        new_data = data
+
+    if not new_data.empty:
+        # Calculate True Range
+        new_data['high_diff'] = new_data['high'].diff()
+        new_data['low_diff'] = new_data['low'].diff()
+        new_data['close_diff'] = new_data['close'].diff()
+
+        new_data['tr'] = new_data[['high_diff', 'low_diff', 'close_diff']].max(axis=1).abs()
+
+        # Calculate +DI and -DI
+        new_data['+DI'] = 100 * (
+            new_data['high'].diff(periods=1).where(new_data['high'].diff(periods=1) > new_data['low'].diff(periods=1), 0).rolling(window=period).mean() /
+            new_data['tr'].rolling(window=period).mean()
+        )
+        new_data['-DI'] = 100 * (
+            new_data['low'].diff(periods=1).where(new_data['low'].diff(periods=1) > new_data['high'].diff(periods=1), 0).rolling(window=period).mean() /
+            new_data['tr'].rolling(window=period).mean()
+        )
+
+        # Calculate ADX
+        new_data['adx'] = 100 * (new_data['+DI'] - new_data['-DI']).abs().rolling(window=period).mean()
+
+        # Merge the new data with the original data
+        data.update(new_data)
 
     # Add traces to the figure if provided
     if fig:
@@ -235,7 +365,53 @@ def calculate_parabolic_sar_and_add_trace(data, af=0.02, max_af=0.2, fig=None):
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['parabolic_sar'], mode='markers', name='Parabolic SAR', marker=dict(color='red')), row=3, col=1)
 
- 
+def calculate_parabolic_sar_and_add_trace_incremental(data, af=0.02, max_af=0.2, fig=None):
+    if 'parabolic_sar' in data.columns and not data['parabolic_sar'].isnull().all():
+        last_calculated_index = data['parabolic_sar'].last_valid_index()
+        start_index = last_calculated_index + 1
+        sar = data['parabolic_sar'].tolist()[:start_index]
+        trend = 1 if data['close'].iloc[last_calculated_index] > data['parabolic_sar'].iloc[last_calculated_index] else -1
+        ep = data['high'].iloc[last_calculated_index] if trend == 1 else data['low'].iloc[last_calculated_index]
+        af_value = af
+    else:
+        start_index = 1
+        sar = [data['close'][0]]
+        trend = 1  # 1 for uptrend, -1 for downtrend
+        ep = data['high'][0] if trend == 1 else data['low'][0]
+        af_value = af
+
+    for i in range(start_index, len(data)):
+        prev_sar = sar[-1]
+
+        if trend == 1:
+            sar.append(prev_sar + af_value * (ep - prev_sar))
+            if data['low'][i] < sar[-1]:
+                trend = -1
+                sar[-1] = ep
+                ep = data['low'][i]
+                af_value = af
+            else:
+                if data['high'][i] > ep:
+                    ep = data['high'][i]
+                    af_value = min(af_value + af, max_af)
+        else:
+            sar.append(prev_sar + af_value * (ep - prev_sar))
+            if data['high'][i] > sar[-1]:
+                trend = 1
+                sar[-1] = ep
+                ep = data['high'][i]
+                af_value = af
+            else:
+                if data['low'][i] < ep:
+                    ep = data['low'][i]
+                    af_value = min(af_value + af, max_af)
+
+    data['parabolic_sar'] = sar
+
+    if fig:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['parabolic_sar'], mode='markers', name='Parabolic SAR', marker=dict(color='red')), row=3, col=1)
+
+
  #ON BALANCE VOLUME(OBV)
 def calculate_obv(data, fig=None):
     """Calculate the On-Balance Volume (OBV) and optionally plot it."""
@@ -266,6 +442,68 @@ def find_and_plot_candlestick_patterns(data, fig=None):
     data['candlestick_pattern'] = None
     
     for i in range(1, len(data)):
+        open_price = data['Open'].iloc[i]
+        close_price = data['close'].iloc[i]
+        high_price = data['high'].iloc[i]
+        low_price = data['low'].iloc[i]
+        
+        if abs(open_price - close_price) < ((high_price - low_price) * 0.1):
+            data.at[i, 'candlestick_pattern'] = 'doji'
+        elif open_price > close_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (low_price == min(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'hammer'
+        elif close_price > open_price and data['close'].iloc[i-1] < data['Open'].iloc[i-1] and (close_price > data['Open'].iloc[i-1]) and (open_price < data['close'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bullish_engulfing'
+        elif open_price > close_price and data['close'].iloc[i-1] > data['Open'].iloc[i-1] and (open_price > data['close'].iloc[i-1]) and (close_price < data['Open'].iloc[i-1]):
+            data.at[i, 'candlestick_pattern'] = 'bearish_engulfing'
+        elif close_price < open_price and (open_price - close_price) > ((high_price - low_price) * 0.6) and (high_price == max(open_price, close_price)):
+            data.at[i, 'candlestick_pattern'] = 'shooting_star'
+    
+    if fig:
+        patterns = ['doji', 'hammer', 'bullish_engulfing', 'bearish_engulfing', 'shooting_star']
+        colors = {
+            'doji': 'yellow',
+            'hammer': 'green',
+            'bullish_engulfing': 'blue',
+            'bearish_engulfing': 'red',
+            'shooting_star': 'purple'
+        }
+
+        for pattern in patterns:
+            pattern_data = data[data['candlestick_pattern'] == pattern]
+            fig.add_trace(
+                go.Scatter(
+                    x=pattern_data['Date'],
+                    y=pattern_data['close'],
+                    mode='markers',
+                    marker=dict(
+                        size=10,
+                        color=colors[pattern],
+                        symbol='circle'
+                    ),
+                    name=pattern.capitalize()
+                ),
+                row=3, col=1
+            )
+
+def find_and_plot_candlestick_patterns_incremental(data, fig=None):
+    required_columns = ['Open', 'close', 'high', 'low', 'Date']
+    
+    # Check if all required columns are in the DataFrame
+    for col in required_columns:
+        if col not in data.columns:
+            raise KeyError(f"'{col}' column is missing from the DataFrame")
+    
+    if 'candlestick_pattern' not in data.columns:
+        data['candlestick_pattern'] = None
+    
+    latest_date = data['Date'].max()
+    
+    start_index = 0
+    if data['candlestick_pattern'].notna().any():
+        latest_indicator_date = data.loc[data['candlestick_pattern'].notna(), 'Date'].max()
+        start_index = data[data['Date'] == latest_indicator_date].index[0] + 1
+    
+    for i in range(start_index, len(data)):
         open_price = data['Open'].iloc[i]
         close_price = data['close'].iloc[i]
         high_price = data['high'].iloc[i]
@@ -344,6 +582,53 @@ def calculate_head_and_shoulders(data, fig=None):
         fig.add_trace(go.Scatter(x=[neckline[0]['Date'], neckline[1]['Date']],
                                  y=[neckline[0]['close'], neckline[1]['close']],
                                  mode='lines', name='Neckline'), row=3, col=1)
+        
+def calculate_head_and_shoulders_incremental(data, fig=None):
+    # Check if 'peak' and 'trough' columns already exist and get the latest date
+    if 'peak' in data.columns and 'trough' in data.columns:
+        last_calculated_date = data.dropna(subset=['peak', 'trough']).index[-1]
+        data_to_calculate = data[data.index > last_calculated_date]
+    else:
+        data_to_calculate = data.copy()
+        data['peak'] = np.nan
+        data['trough'] = np.nan
+
+    # Identifying peaks and troughs
+    data_to_calculate['peak'] = (data_to_calculate['close'] > data_to_calculate['close'].shift(1)) & (data_to_calculate['close'] > data_to_calculate['close'].shift(-1))
+    data_to_calculate['trough'] = (data_to_calculate['close'] < data_to_calculate['close'].shift(1)) & (data_to_calculate['close'] < data_to_calculate['close'].shift(-1))
+    
+    data.update(data_to_calculate[['peak', 'trough']])
+    
+    peaks = data[data['peak']]
+    troughs = data[data['trough']]
+    
+    shoulders = []
+    head = None
+    neckline = None
+    
+    # Detect Head and Shoulders pattern
+    for i in range(1, len(peaks) - 1):
+        if peaks['close'].iloc[i-1] < peaks['close'].iloc[i] and peaks['close'].iloc[i+1] < peaks['close'].iloc[i]:
+            head = peaks.iloc[i]
+            shoulders.append((peaks.iloc[i-1], peaks.iloc[i+1]))
+            break
+    
+    if head is not None:
+        for i in range(len(troughs) - 1):
+            if troughs['Date'].iloc[i] < head['Date'] and troughs['Date'].iloc[i+1] > head['Date']:
+                neckline = (troughs.iloc[i], troughs.iloc[i+1])
+                break
+    
+    # Plotting if fig is provided
+    if fig and head is not None and neckline is not None:
+        fig.add_trace(go.Scatter(x=[shoulders[0][0]['Date'], head['Date'], shoulders[0][1]['Date']],
+                                 y=[shoulders[0][0]['close'], head['close'], shoulders[0][1]['close']],
+                                 mode='lines+markers', name='Head and Shoulders'), row=3, col=1)
+        
+        fig.add_trace(go.Scatter(x=[neckline[0]['Date'], neckline[1]['Date']],
+                                 y=[neckline[0]['close'], neckline[1]['close']],
+                                 mode='lines', name='Neckline'), row=3, col=1)
+
 
 # Double Top/Bottom
 def identify_double_top_bottom(data, fig=None):
@@ -364,6 +649,62 @@ def identify_double_top_bottom(data, fig=None):
             if i-2 >= 0 and data['low'].iloc[i-2] > data['low'].iloc[i-1] and data['low'].iloc[i+2] > data['low'].iloc[i+1]:
                 double_bottom_indices.append(i)
                 data['double_bottom'].iloc[i] = data['low'].iloc[i]
+
+    if fig:
+        if double_top_indices:
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[idx] for idx in double_top_indices],
+                y=[data['high'].iloc[idx] for idx in double_top_indices],
+                mode='markers',
+                marker=dict(symbol='triangle-up', color='blue', size=10),
+                name='Double Top'
+            ))
+        if double_bottom_indices:
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[idx] for idx in double_bottom_indices],
+                y=[data['low'].iloc[idx] for idx in double_bottom_indices],
+                mode='markers',
+                marker=dict(symbol='triangle-down', color='black', size=10),
+                name='Double Bottom'
+            ))
+
+        # Add dotted lines connecting each double top to its corresponding double bottom
+        for top_idx, bottom_idx in zip(double_top_indices, double_bottom_indices):
+            fig.add_trace(go.Scatter(
+                x=[data['Date'].iloc[top_idx], data['Date'].iloc[bottom_idx]],
+                y=[data['high'].iloc[top_idx], data['low'].iloc[bottom_idx]],
+                mode='lines',
+                line=dict(color='green', width=2, dash='dot'),
+                name='Double Top-Bottom Line',
+                showlegend=False
+            ))
+
+
+def identify_double_top_bottom_incremental(data, fig=None):
+    # Check if the indicator columns already exist
+    if 'double_top' not in data.columns:
+        data['double_top'] = float('nan')
+    if 'double_bottom' not in data.columns:
+        data['double_bottom'] = float('nan')
+
+    double_top_indices = []
+    double_bottom_indices = []
+
+    # Find the last index where double_top or double_bottom is not NaN
+    last_index = max(data['double_top'].last_valid_index() or 0, data['double_bottom'].last_valid_index() or 0)
+
+    for i in range(last_index + 1, len(data)-1):
+        # Detecting Double Top
+        if data['high'].iloc[i-1] < data['high'].iloc[i] and data['high'].iloc[i+1] < data['high'].iloc[i]:
+            if i-2 >= 0 and data['high'].iloc[i-2] < data['high'].iloc[i-1] and data['high'].iloc[i+2] < data['high'].iloc[i+1]:
+                double_top_indices.append(i)
+                data.at[i, 'double_top'] = data['high'].iloc[i]
+
+        # Detecting Double Bottom
+        if data['low'].iloc[i-1] > data['low'].iloc[i] and data['low'].iloc[i+1] > data['low'].iloc[i]:
+            if i-2 >= 0 and data['low'].iloc[i-2] > data['low'].iloc[i-1] and data['low'].iloc[i+2] > data['low'].iloc[i+1]:
+                double_bottom_indices.append(i)
+                data.at[i, 'double_bottom'] = data['low'].iloc[i]
 
     if fig:
         if double_top_indices:
@@ -533,6 +874,46 @@ def calculate_flag_and_add_trace(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_top'], mode='lines', name='Flag Top'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_bottom'], mode='lines', name='Flag Bottom'), row=3, col=1)
 
+def calculate_flag_and_add_trace_incremental(data, fig=None, start_date=None):
+    if 'flag_top' not in data.columns or 'flag_bottom' not in data.columns:
+        data['flag_top'] = np.nan
+        data['flag_bottom'] = np.nan
+
+    min_periods = 5  # Number of periods to consider for flag/pennant identification
+    
+    start_idx = 0
+    if start_date:
+        start_idx = data.index[data['Date'] > start_date][0]
+    
+    for i in range(max(min_periods, start_idx), len(data) - min_periods):
+        # Identify potential flagpole
+        if data['close'][i] > data['close'][i-1] * 1.05:  # 5% price increase as a placeholder
+            flagpole_start = i-1
+            flagpole_end = i
+            flag_top = data['close'][i]
+            flag_bottom = data['close'][flagpole_start]
+            
+            # Check for consolidation (flag/pennant formation)
+            for j in range(i + 1, len(data)):
+                if data['close'][j] < flag_top and data['close'][j] > flag_bottom:
+                    continue
+                else:
+                    if data['close'][j] > flag_top:  # Breakout to the upside
+                        data.loc[flagpole_start:j, 'flag_top'] = flag_top
+                        data.loc[flagpole_start:j, 'flag_bottom'] = flag_bottom
+                        break
+                    else:
+                        break
+    
+    data['flag_top'] = data['flag_top'].interpolate()
+    data['flag_bottom'] = data['flag_bottom'].interpolate()
+    
+    if fig:
+        # Add flag formation to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_top'], mode='lines', name='Flag Top'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['flag_bottom'], mode='lines', name='Flag Bottom'), row=3, col=1)
+
+
 # Triangles
 def calculate_triangle_and_add_trace(data, min_periods ,fig=None):
     data[f'upper_trendline_{min_periods}'] = np.nan
@@ -558,6 +939,37 @@ def calculate_triangle_and_add_trace(data, min_periods ,fig=None):
         # Add lower trendline to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_trendline_{min_periods}'], mode='lines', name='Lower Trendline'), row=1, col=1)
 
+def calculate_triangle_and_add_trace_incremental(data, min_periods, fig=None):
+    upper_col = f'upper_trendline_{min_periods}'
+    lower_col = f'lower_trendline_{min_periods}'
+    
+    if upper_col not in data.columns or lower_col not in data.columns:
+        data[upper_col] = np.nan
+        data[lower_col] = np.nan
+    
+    # Find the latest date for which the indicators are calculated
+    last_calculated_index = data.dropna(subset=[upper_col, lower_col]).index.max() if not data.dropna(subset=[upper_col, lower_col]).empty else min_periods
+
+    # Start calculation from the next day after the last calculated index
+    start_index = last_calculated_index + 1 if last_calculated_index is not None else min_periods
+
+    for i in range(start_index, len(data) - min_periods):
+        local_min = data['close'][i-min_periods:i+min_periods].min()
+        local_max = data['close'][i-min_periods:i+min_periods].max()
+        
+        if data['close'][i] == local_min:
+            data[lower_col][i] = local_min
+        if data['close'][i] == local_max:
+            data[upper_col][i] = local_max
+
+    data[lower_col] = data[lower_col].interpolate()
+    data[upper_col] = data[upper_col].interpolate()
+    
+    if fig:
+        # Add upper trendline to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[upper_col], mode='lines', name='Upper Trendline'), row=1, col=1)
+        # Add lower trendline to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[lower_col], mode='lines', name='Lower Trendline'), row=1, col=1)
 
 #GANN ANGLES
 def calculate_gann_angles(data, key_price_points, angles, fig=None):
@@ -683,6 +1095,26 @@ def calculate_roc_and_add_trace(data, window, fig=None):
         # Add ROC line to the fourth subplot (adjust the subplot as needed)
         fig.add_trace(go.Scatter(x=data['Date'], y=data[roc_col], mode='lines', name=f'ROC_{window}'), row=3, col=1)
 
+def calculate_roc_and_add_trace_incremental(data, window, fig=None):
+    # Calculate ROC
+    roc_col = f'roc_{window}'
+    
+    # Check if the ROC column already exists
+    if roc_col in data.columns:
+        # Get the latest date for which ROC is defined
+        last_defined_date = data[data[roc_col].notna()]['Date'].max()
+        start_idx = data[data['Date'] > last_defined_date].index[0] if not pd.isnull(last_defined_date) else window
+    else:
+        start_idx = window
+        data[roc_col] = float('nan')
+    
+    # Calculate ROC for the new data points
+    data.loc[start_idx:, roc_col] = (data['close'].diff(window) / data['close'].shift(window)) * 100
+    
+    if fig:
+        # Add ROC line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[roc_col], mode='lines', name=f'ROC_{window}'), row=3, col=1)
+
 # Commodity Channel Index
 def calculate_cci_and_add_trace(data, window=20, fig=None):
     # Calculate Typical Price
@@ -705,6 +1137,42 @@ def calculate_cci_and_add_trace(data, window=20, fig=None):
         # Add CCI line to the fourth subplot (adjust the subplot as needed)
         fig.add_trace(go.Scatter(x=data['Date'], y=data[cci_col], mode='lines', name=f'CCI_{window}'), row=3, col=1)
 
+def calculate_cci_and_add_trace_incremental(data, window=20, fig=None):
+    cci_col = f'cci_{window}'
+
+    # Check if CCI already exists up to the latest date
+    if cci_col in data.columns:
+        last_calculated_date = data.dropna(subset=[cci_col]).index[-1]
+        new_data = data.loc[last_calculated_date:]
+    else:
+        new_data = data
+
+    if len(new_data) <= window:
+        # Not enough data to calculate CCI
+        return
+
+    # Calculate Typical Price
+    new_data['Typical_Price'] = (new_data['high'] + new_data['low'] + new_data['close']) / 3
+    
+    # Calculate the SMA of Typical Price
+    new_data[f'SMA_Typical_Price_{window}'] = new_data['Typical_Price'].rolling(window=window).mean()
+    
+    # Calculate the Mean Deviation
+    def mean_deviation(x):
+        return np.mean(np.abs(x - np.mean(x)))
+    
+    new_data['Mean_Deviation'] = new_data['Typical_Price'].rolling(window=window).apply(mean_deviation)
+    
+    # Calculate CCI
+    new_data[cci_col] = (new_data['Typical_Price'] - new_data[f'SMA_Typical_Price_{window}']) / (0.015 * new_data['Mean_Deviation'])
+    
+    # Update the original data with the new CCI values
+    data.update(new_data)
+
+    if fig:
+        # Add CCI line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[cci_col], mode='lines', name=f'CCI_{window}'), row=3, col=1)
+
 # Willian %R
 def calculate_williams_r_and_add_trace(data, window, fig=None):
     # Calculate Williams %R
@@ -717,6 +1185,27 @@ def calculate_williams_r_and_add_trace(data, window, fig=None):
         # Add Williams %R line to the fourth subplot (adjust the subplot as needed)
         fig.add_trace(go.Scatter(x=data['Date'], y=data[williams_r_col], mode='lines', name=f'Williams %R_{window}'), row=3, col=1)
 
+def calculate_williams_r_and_add_trace_incremental(data, window, fig=None):
+    # Check if Williams %R is already calculated
+    williams_r_col = f'williams_%R_{window}'
+    if williams_r_col in data.columns:
+        last_calculated_date = data.dropna(subset=[williams_r_col])['Date'].max()
+        start_idx = data[data['Date'] == last_calculated_date].index[0] + 1
+    else:
+        start_idx = window
+        data[f'Highest_High_{window}'] = float('nan')
+        data[f'Lowest_Low_{window}'] = float('nan')
+        data[williams_r_col] = float('nan')
+
+    # Calculate Williams %R for new data
+    for i in range(start_idx, len(data)):
+        data.at[i, f'Highest_High_{window}'] = data['high'].iloc[i-window:i].max()
+        data.at[i, f'Lowest_Low_{window}'] = data['low'].iloc[i-window:i].min()
+        data.at[i, williams_r_col] = (data[f'Highest_High_{window}'].iloc[i] - data['close'].iloc[i]) / (data[f'Highest_High_{window}'].iloc[i] - data[f'Lowest_Low_{window}'].iloc[i]) * -100
+
+    if fig:
+        # Add Williams %R line to the fourth subplot (adjust the subplot as needed)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[williams_r_col], mode='lines', name=f'Williams %R_{window}'), row=3, col=1)
 # Pivot Points
 
 def calculate_pivot_points_and_add_trace(data, fig=None):
@@ -739,6 +1228,38 @@ def calculate_pivot_points_and_add_trace(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['support_3'], mode='lines', name='Support 3'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_3'], mode='lines', name='Resistance 3'), row=3, col=1)
 
+def calculate_pivot_points_and_add_trace_incremental(data, fig=None):
+    # Check if pivot points are already calculated
+    if 'pivot_point' in data.columns:
+        # Find the last date where pivot points were calculated
+        last_calculated_date = data.dropna(subset=['pivot_point'])['Date'].max()
+        # Filter the data to calculate new values only from the next day
+        new_data = data[data['Date'] > last_calculated_date]
+    else:
+        new_data = data
+
+    # Calculate Pivot Points, Support and Resistance Levels for new data
+    new_data['pivot_point'] = (new_data['high'] + new_data['low'] + new_data['close']) / 3
+    new_data['support_1'] = (2 * new_data['pivot_point']) - new_data['high']
+    new_data['resistance_1'] = (2 * new_data['pivot_point']) - new_data['low']
+    new_data['support_2'] = new_data['pivot_point'] - (new_data['high'] - new_data['low'])
+    new_data['resistance_2'] = new_data['pivot_point'] + (new_data['high'] - new_data['low'])
+    new_data['support_3'] = new_data['low'] - 2 * (new_data['high'] - new_data['pivot_point'])
+    new_data['resistance_3'] = new_data['high'] + 2 * (new_data['pivot_point'] - new_data['low'])
+
+    # Update the original data with new calculations
+    for col in ['pivot_point', 'support_1', 'resistance_1', 'support_2', 'resistance_2', 'support_3', 'resistance_3']:
+        data.loc[data['Date'].isin(new_data['Date']), col] = new_data[col]
+
+    if fig:
+        # Add pivot points and support/resistance levels to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['pivot_point'], mode='lines', name='Pivot Point'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_1'], mode='lines', name='Support 1'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_1'], mode='lines', name='Resistance 1'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_2'], mode='lines', name='Support 2'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_2'], mode='lines', name='Resistance 2'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['support_3'], mode='lines', name='Support 3'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['resistance_3'], mode='lines', name='Resistance 3'), row=3, col=1)
 
 # ATR
 def calculate_atr_and_add_trace(data, window, fig=None):
@@ -758,6 +1279,33 @@ def calculate_atr_and_add_trace(data, window, fig=None):
         # Add ATR line to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'atr_{window}'], mode='lines', name='ATR'), row=3, col=1)
 
+def calculate_atr_and_add_trace_incremental(data, window, fig=None):
+    # Calculate True Range (TR)
+    data['high_low'] = data['high'] - data['low']
+    data['high_close'] = abs(data['high'] - data['close'].shift(1))
+    data['low_close'] = abs(data['low'] - data['close'].shift(1))
+    data['true_range'] = data[['high_low', 'high_close', 'low_close']].max(axis=1)
+
+    atr_col = f'atr_{window}'
+
+    if atr_col in data.columns:
+        last_calculated_date = data.dropna(subset=[atr_col]).iloc[-1]['Date']
+        start_index = data[data['Date'] == last_calculated_date].index[0] + 1
+    else:
+        last_calculated_date = None
+        start_index = 0
+
+    # Calculate ATR
+    data.loc[start_index:, atr_col] = data['true_range'].rolling(window=window).mean()
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', 'true_range', atr_col]].head())
+
+    if fig:
+        # Add ATR line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[atr_col], mode='lines', name='ATR'), row=3, col=1)
+
+
 
 #Keltner Channels
 def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_multiplier, fig=None):
@@ -776,6 +1324,52 @@ def calculate_keltner_channels_and_add_trace(data, ema_window, atr_window, atr_m
     # Calculate Upper and Lower Channel Lines
     data[f'upper_channel'] = data[f'ema_{ema_window}'] + (atr_multiplier * data[f'atr_{atr_window}'])
     data[f'lower_channel'] = data[f'ema_{ema_window}'] - (atr_multiplier * data[f'atr_{atr_window}'])
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', f'ema_{ema_window}', f'upper_channel', f'lower_channel']].head())
+
+    if fig:
+        # Add EMA (middle line) to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'ema_{ema_window}'], mode='lines', name='EMA'), row=1, col=1)
+        # Add Upper Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'upper_channel'], mode='lines', name='Upper Channel'), row=1, col=1)
+        # Add Lower Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=1, col=1)
+
+def calculate_keltner_channels_and_add_trace_incremental(data, ema_window, atr_window, atr_multiplier, fig=None):
+    # Check if the required columns exist, if not, create them
+    for col in [f'ema_{ema_window}', f'atr_{atr_window}', 'upper_channel', 'lower_channel']:
+        if col not in data.columns:
+            data[col] = float('nan')
+    
+    # Find the last index where all required values are non-NaN
+    last_calculated_index = data.dropna(subset=[f'ema_{ema_window}', f'atr_{atr_window}', 'upper_channel', 'lower_channel']).index[-1] if not data.dropna(subset=[f'ema_{ema_window}', f'atr_{atr_window}', 'upper_channel', 'lower_channel']).empty else -1
+
+    # Calculate the 20-day EMA for the middle line
+    if last_calculated_index == -1:
+        data[f'ema_{ema_window}'] = data['close'].ewm(span=ema_window, adjust=False).mean()
+    else:
+        data.loc[last_calculated_index+1:, f'ema_{ema_window}'] = data['close'].ewm(span=ema_window, adjust=False).mean().iloc[last_calculated_index+1:]
+
+    # Calculate True Range (TR)
+    data['high_low'] = data['high'] - data['low']
+    data['high_close'] = abs(data['high'] - data['close'].shift(1))
+    data['low_close'] = abs(data['low'] - data['close'].shift(1))
+    data['true_range'] = data[['high_low', 'high_close', 'low_close']].max(axis=1)
+
+    # Calculate ATR
+    if last_calculated_index == -1:
+        data[f'atr_{atr_window}'] = data['true_range'].rolling(window=atr_window).mean()
+    else:
+        data.loc[last_calculated_index+1:, f'atr_{atr_window}'] = data['true_range'].rolling(window=atr_window).mean().iloc[last_calculated_index+1:]
+
+    # Calculate Upper and Lower Channel Lines
+    if last_calculated_index == -1:
+        data[f'upper_channel'] = data[f'ema_{ema_window}'] + (atr_multiplier * data[f'atr_{atr_window}'])
+        data[f'lower_channel'] = data[f'ema_{ema_window}'] - (atr_multiplier * data[f'atr_{atr_window}'])
+    else:
+        data.loc[last_calculated_index+1:, f'upper_channel'] = data[f'ema_{ema_window}'] + (atr_multiplier * data[f'atr_{atr_window}'])
+        data.loc[last_calculated_index+1:, f'lower_channel'] = data[f'ema_{ema_window}'] - (atr_multiplier * data[f'atr_{atr_window}'])
 
     # Debug prints to ensure calculations are correct
     print(data[['Date', f'ema_{ema_window}', f'upper_channel', f'lower_channel']].head())
@@ -810,6 +1404,29 @@ def calculate_price_channels_and_add_trace(data, window, fig=None):
         # Add Lower Channel line to the plot
         fig.add_trace(go.Scatter(x=data['Date'], y=data[f'lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
+def calculate_price_channels_and_add_trace_incremental(data, window, start_date=None, fig=None):
+    """
+    Calculate the Price Channels indicator and add it to the plot.
+    Upper Channel = Highest high over the last 'window' periods
+    Lower Channel = Lowest low over the last 'window' periods
+    """
+    # Ensure start_date is a datetime object
+    if start_date:
+        start_date = pd.to_datetime(start_date)
+        start_index = data[data['Date'] > start_date].index[0]
+        data = data.loc[start_index-window+1:]
+        
+    data['upper_channel'] = data['high'].rolling(window=window).max()
+    data['lower_channel'] = data['low'].rolling(window=window).min()
+
+    # Debug prints to ensure calculations are correct
+    print(data[['Date', 'upper_channel', 'lower_channel']].head())
+
+    if fig:
+        # Add Upper Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['upper_channel'], mode='lines', name='Upper Channel'), row=3, col=1)
+        # Add Lower Channel line to the plot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_channel'], mode='lines', name='Lower Channel'), row=3, col=1)
 
 #RVI Strategy
 

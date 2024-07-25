@@ -51,7 +51,8 @@ def bollinger_band_squeeze(df, squeeze_threshold, bollinger_window, num_std_dev,
     """
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
-    ndct.calculate_bollinger_bands(df, window=bollinger_window, num_std_dev=num_std_dev)
+    #ndct.calculate_bollinger_bands(df, window=bollinger_window, num_std_dev=num_std_dev)
+    ndct.calculate_bollinger_bands_incremental(df, window=bollinger_window, num_std_dev=num_std_dev)
 
     upper_band = f'upper_band_{bollinger_window}_{num_std_dev}'
     lower_band = f'lower_band_{bollinger_window}_{num_std_dev}'
@@ -359,7 +360,8 @@ def ichimoku_cloud_strategy(df, tenkan_sen_period, kijun_sen_period, senkou_span
     """
     ticker = df['ticker'].iloc[0]
     fig = dr.plotGraph(df, ticker) if toPlot else None
-    ndct.cal_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig)
+    #ndct.cal_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig)
+    ndct.cal_ichimoku_incremental(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig)
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -431,7 +433,8 @@ def implement_obv(df, stop_loss_percentage, toPlot=False):
         raise KeyError("The DataFrame does not contain a 'volume' column.")
     
     # Calculate OBV
-    ndct.calculate_obv(df)  # Calculate OBV within this function
+    #ndct.calculate_obv(df)  # Calculate OBV within this function
+    ndct.calculate_obv_incremental(df)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -702,7 +705,8 @@ def implement_vpt(df, stop_loss_percentage, toPlot=False):
         raise KeyError("The DataFrame does not contain a 'volume' column.")
     
     # Calculate VPT
-    ndct.calculate_vpt(df)  # Calculate VPT within this function
+    #ndct.calculate_vpt(df)  # Calculate VPT within this function
+    ndct.calculate_vpt_incremental(df)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -775,8 +779,8 @@ def implement_cmf(df, stop_loss_percentage, toPlot=False):
         raise KeyError("The DataFrame does not contain a 'volume' column.")
     
     # Calculate CMF
-    ndct.calculate_cmf(df)  # Calculate CMF within this function
-
+    #ndct.calculate_cmf(df)  # Calculate CMF within this function
+    ndct.calculate_cmf_incremental(df)
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     triggers = ['H'] * len(df)  # Initialize with 'H' of DataFrame length
@@ -846,7 +850,8 @@ def implement_heikin_ashi(df, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Heikin-Ashi
-    ndct.calculate_heikin_ashi(df)
+    #ndct.calculate_heikin_ashi(df)
+    ndct.calculate_heikin_ashi_incremental(df)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1160,7 +1165,8 @@ def implement_elliott_wave(df, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Identify Elliott Wave patterns
-    ndct.identify_elliott_wave_patterns(df, fig)
+    #ndct.identify_elliott_wave_patterns(df, fig)
+    ndct.identify_elliott_wave_patterns_incremental(df, fig)
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -1223,6 +1229,7 @@ def implement_donchian_channels(df, n, stop_loss_percentage, toPlot=False):
 
     # Calculate Donchian Channels
     ndct.calculate_donchian_channels(df, n)  # Calculate Donchian Channels within this function
+    ndct.calculate_donchian_channels_incremental(df, n)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1413,7 +1420,8 @@ def implement_gann_angles(df, key_price_points, angles, stop_loss_percentage, to
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Gann Angles
-    ndct.calculate_gann_angles(df, key_price_points, angles, fig)  # Calculate Gann Angles within this function
+    #ndct.calculate_gann_angles(df, key_price_points, angles, fig)  # Calculate Gann Angles within this function
+    ndct.calculate_gann_angles_incremental(df, key_price_points, angles, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1490,7 +1498,8 @@ def implement_momentum(df, n, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Momentum
-    ndct.calculate_momentum(df, n)  # Calculate Momentum within this function
+    #ndct.calculate_momentum(df, n)  # Calculate Momentum within this function
+    ndct.calculate_momentum_incremental(df, n)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1557,7 +1566,8 @@ def implement_mfi_strategy(df, n, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate MFI
-    ndct.calculate_mfi(df, n, fig)  # Calculate MFI within this function
+    #ndct.calculate_mfi(df, n, fig)  # Calculate MFI within this function
+    ndct.calculate_mfi_incremental(df, n, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1627,7 +1637,8 @@ def implement_trix_strategy(df, n, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate TRIX
-    ndct.calculate_trix(df, n, fig)  # Calculate TRIX within this function
+    #ndct.calculate_trix(df, n, fig)  # Calculate TRIX within this function
+    ndct.calculate_trix_incremental(df, n, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1696,7 +1707,8 @@ def implement_proc_strategy(df, n, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate PROC
-    ndct.calculate_proc(df, n, fig)  # Calculate PROC within this function
+    #ndct.calculate_proc(df, n, fig)  # Calculate PROC within this function
+    ndct.calculate_proc_incremental(df, n, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -1766,7 +1778,8 @@ def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate Vortex Indicator
-    ndct.calculate_vortex(df, n, fig)  # Calculate VI within this function
+    #ndct.calculate_vortex(df, n, fig)  # Calculate VI within this function
+    ndct.calculate_vortex_incremental(df, n, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
@@ -3219,7 +3232,8 @@ def implement_divergence(df, short_window=12, long_window=26, signal_window=9, r
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate indicators and add traces to the plot
-    ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window, fig)
+    #ndct.calculate_indicators_and_add_trace(df, short_window, long_window, signal_window, rsi_window, fig)
+    ndct.calculate_indicators_and_add_trace_incremental(df, short_window, long_window, signal_window, rsi_window, fig)
 
     buy_signals = [float('nan')] * len(df)
     sell_signals = [float('nan')] * len(df)
@@ -3296,7 +3310,8 @@ def implement_stc_strategy(df, short_window, long_window, signal_window, cycle_w
     fig = dr.plotGraph(df, ticker) if toPlot else None
 
     # Calculate STC
-    ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)  # Calculate STC within this function
+    #ndct.calculate_stc(df, short_window, long_window, signal_window, cycle_window, fig)  # Calculate STC within this function
+    ndct.calculate_stc_incremental(df, short_window, long_window, signal_window, cycle_window, fig)
 
     buy_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length
     sell_signals = [float('nan')] * len(df)  # Initialize with NaNs of DataFrame length

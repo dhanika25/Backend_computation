@@ -16,9 +16,6 @@ def ma(n, df, fig=None):
     return df
 
 #BOLLINGER STRATEGY
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
 def rolling_std(df, window):
     df[f'rolling_std_{window}'] = df['close'].rolling(window=window).std()
 
@@ -43,11 +40,51 @@ def calculate_bollinger_bands(df, window, num_std_dev, fig=None):
         fig.add_trace(go.Scatter(x=df['Date'], y=df[f'MA_{window}'], mode='lines', name='Moving Average', line=dict(color='green')), row=3, col=1)
         fig.update_layout(height=900, width=900)  # Adjust the figure size as needed
 
-# Example of creating a figure with subplots
-def create_figure_with_subplots():
-    fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
-                        subplot_titles=("Price", "Bollinger Bands", "MACD"),
-                        vertical_spacing=0.1)
+
+#Incremental 
+def rolling_std_incremental(df, window):
+    std_col = f'rolling_std_{window}'
+    if std_col in df.columns:
+        last_date = df.dropna(subset=[std_col]).index[-1]
+        df.loc[last_date:, std_col] = df['close'].loc[last_date:].rolling(window=window).std()
+    else:
+        df[std_col] = df['close'].rolling(window=window).std()
+
+def ma_incremental(df, window):
+    ma_col = f'MA_{window}'
+    if ma_col in df.columns:
+        last_date = df.dropna(subset=[ma_col]).index[-1]
+        df.loc[last_date:, ma_col] = df['close'].loc[last_date:].rolling(window=window).mean()
+    else:
+        df[ma_col] = df['close'].rolling(window=window).mean()
+
+
+def calculate_bollinger_bands_incremental(df, window, num_std_dev, fig=None):
+    # Ensure required columns exist
+    ma_incremental(df, window)
+    rolling_std_incremental(df, window)
+    
+    upper_band = f'upper_band_{window}_{num_std_dev}'
+    lower_band = f'lower_band_{window}_{num_std_dev}'
+    band_width = f'band_width_{window}_{num_std_dev}'
+
+    if upper_band in df.columns:
+        last_date = df.dropna(subset=[upper_band]).index[-1]
+        df.loc[last_date:, upper_band] = df[f'MA_{window}'].loc[last_date:] + (df[f'rolling_std_{window}'].loc[last_date:] * num_std_dev)
+        df.loc[last_date:, lower_band] = df[f'MA_{window}'].loc[last_date:] - df[f'rolling_std_{window}'].loc[last_date:] * num_std_dev
+        df.loc[last_date:, band_width] = df[upper_band].loc[last_date:] - df[lower_band].loc[last_date:]
+    else:
+        df[upper_band] = df[f'MA_{window}'] + (df[f'rolling_std_{window}'] * num_std_dev)
+        df[lower_band] = df[f'MA_{window}'] - df[f'rolling_std_{window}'] * num_std_dev
+        df[band_width] = df[upper_band] - df[lower_band]
+
+    if fig:
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[upper_band], mode='lines', name='Upper Band', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[lower_band], mode='lines', name='Lower Band', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df['Date'], y=df[f'MA_{window}'], mode='lines', name='Moving Average', line=dict(color='green')), row=3, col=1)
+        fig.update_layout(height=900, width=900)  # Adjust the figure size as needed
+
+
 
 
 
@@ -214,6 +251,61 @@ def cal_ichimoku(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, 
         fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_a'], mode='lines', name='Senkou Span A', line=dict(color='green')), row=3, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['senkou_span_b'], mode='lines', name='Senkou Span B', line=dict(color='orange')), row=3, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['chikou_span'], mode='lines', name='Chikou Span', line=dict(color='purple')), row=3, col=1)
+
+#INcremental
+def cal_ichimoku_incremental(df, tenkan_sen_period, kijun_sen_period, senkou_span_b_period, senkou_shift, fig=None):
+    # Tenkan-sen (Conversion Line)
+    tenkan_sen_col = 'tenkan_sen'
+    if tenkan_sen_col in df.columns:
+        last_date = df.dropna(subset=[tenkan_sen_col]).index[-1]
+        df.loc[last_date:, tenkan_sen_col] = (df['high'].loc[last_date:].rolling(window=tenkan_sen_period).max() + df['low'].loc[last_date:].rolling(window=tenkan_sen_period).min()) / 2
+    else:
+        df[tenkan_sen_col] = (df['high'].rolling(window=tenkan_sen_period).max() + df['low'].rolling(window=tenkan_sen_period).min()) / 2
+
+    # Kijun-sen (Base Line)
+    kijun_sen_col = 'kijun_sen'
+    if kijun_sen_col in df.columns:
+        last_date = df.dropna(subset=[kijun_sen_col]).index[-1]
+        df.loc[last_date:, kijun_sen_col] = (df['high'].loc[last_date:].rolling(window=kijun_sen_period).max() + df['low'].loc[last_date:].rolling(window=kijun_sen_period).min()) / 2
+    else:
+        df[kijun_sen_col] = (df['high'].rolling(window=kijun_sen_period).max() + df['low'].rolling(window=kijun_sen_period).min()) / 2
+
+    # Senkou Span A (Leading Span A)
+    senkou_span_a_col = 'senkou_span_a'
+    if senkou_span_a_col in df.columns:
+        last_date = df.dropna(subset=[senkou_span_a_col]).index[-1]
+        df.loc[last_date:, senkou_span_a_col] = ((df[tenkan_sen_col].loc[last_date:] + df[kijun_sen_col].loc[last_date:]) / 2).shift(senkou_shift)
+    else:
+        df[senkou_span_a_col] = ((df[tenkan_sen_col] + df[kijun_sen_col]) / 2).shift(senkou_shift)
+
+    # Senkou Span B (Leading Span B)
+    senkou_span_b_col = 'senkou_span_b'
+    if senkou_span_b_col in df.columns:
+        last_date = df.dropna(subset=[senkou_span_b_col]).index[-1]
+        df.loc[last_date:, senkou_span_b_col] = (df['high'].loc[last_date:].rolling(window=senkou_span_b_period).max() + df['low'].loc[last_date:].rolling(window=senkou_span_b_period).min()) / 2
+        df.loc[last_date:, senkou_span_b_col] = df[senkou_span_b_col].shift(senkou_shift)
+    else:
+        df[senkou_span_b_col] = (df['high'].rolling(window=senkou_span_b_period).max() + df['low'].rolling(window=senkou_span_b_period).min()) / 2
+        df[senkou_span_b_col] = df[senkou_span_b_col].shift(senkou_shift)
+
+    # Chikou Span (Lagging Span)
+    chikou_span_col = 'chikou_span'
+    if chikou_span_col in df.columns:
+        last_date = df.dropna(subset=[chikou_span_col]).index[-1]
+        df.loc[last_date:, chikou_span_col] = df['close'].loc[last_date:].shift(-senkou_shift)
+    else:
+        df[chikou_span_col] = df['close'].shift(-senkou_shift)
+
+    # Plotting if fig is provided
+    if fig:
+        fig.add_trace(go.Scatter(x=df.index, y=df[tenkan_sen_col], mode='lines', name='Tenkan-sen', line=dict(color='red')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df[kijun_sen_col], mode='lines', name='Kijun-sen', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df[senkou_span_a_col], mode='lines', name='Senkou Span A', line=dict(color='green')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df[senkou_span_b_col], mode='lines', name='Senkou Span B', line=dict(color='orange')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df[chikou_span_col], mode='lines', name='Chikou Span', line=dict(color='purple')), row=3, col=1)
+
+
+
 
 
 #Fibonacci Retracement
@@ -428,6 +520,41 @@ def calculate_obv(data, fig=None):
     if fig:
         # Add OBV line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['OBV'], mode='lines', name='OBV'), row=3, col=1)
+
+
+#INCREMENTAL
+def calculate_obv_incremental(data, fig=None):
+    """Calculate the On-Balance Volume (OBV) incrementally and optionally plot it."""
+    obv_col = 'OBV'
+    
+    if obv_col in data.columns and not data[obv_col].isna().all():
+        last_date = data.dropna(subset=[obv_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+        obv = data[obv_col].iloc[start_idx-1]  # Start from the last calculated OBV value
+    else:
+        start_idx = 1
+        obv = 0  # Start with OBV of 0
+        data[obv_col] = 0  # Initialize the OBV column with 0
+    
+    obv_values = []
+
+    for i in range(start_idx, len(data)):
+        if data['close'].iloc[i] > data['close'].iloc[i-1]:
+            obv += data['Volume'].iloc[i]
+        elif data['close'].iloc[i] < data['close'].iloc[i-1]:
+            obv -= data['Volume'].iloc[i]
+        obv_values.append(obv)
+    
+    data.loc[data.index[start_idx:], obv_col] = obv_values
+    
+    if fig:
+        # Add OBV line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['OBV'], mode='lines', name='OBV'), row=3, col=1)
+
+
+
+
+
 
 # Candlestick Patterns
 
@@ -747,6 +874,33 @@ def calculate_vpt(data, fig=None):
         # Add VPT line to the third subplot
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VPT'], mode='lines', name='VPT'), row=3, col=1)
 
+#INCREMENTAL
+def calculate_vpt_incremental(data, fig=None):
+    """Calculate the Volume Price Trend (VPT) incrementally and optionally plot it."""
+    vpt_col = 'VPT'
+    
+    if vpt_col in data.columns and not data[vpt_col].isna().all():
+        last_date = data.dropna(subset=[vpt_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+        vpt = data[vpt_col].iloc[start_idx-1]  # Start from the last calculated VPT value
+    else:
+        start_idx = 1
+        vpt = 0  # Start with VPT of 0
+        data[vpt_col] = 0  # Initialize the VPT column with 0
+    
+    vpt_values = []
+
+    for i in range(start_idx, len(data)):
+        vpt += (data['Volume'].iloc[i] * (data['close'].iloc[i] - data['close'].iloc[i-1]) / data['close'].iloc[i-1])
+        vpt_values.append(vpt)
+    
+    data.loc[data.index[start_idx:], vpt_col] = vpt_values
+    
+    if fig:
+        # Add VPT line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['VPT'], mode='lines', name='VPT'), row=3, col=1)
+
+
 
 #CHAIKIN MONEY FLOW(CMF)
 def calculate_cmf(data, fig=None):
@@ -785,6 +939,53 @@ def calculate_cmf(data, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['CMF'], mode='lines', name='CMF'), row=3, col=1)
 
 
+#INCREMENTAL
+def calculate_cmf_incremental(data, fig=None):
+    """Calculate the Chaikin Money Flow (CMF) incrementally and optionally plot it."""
+    cmf_col = 'CMF'
+    
+    if cmf_col in data.columns and not data[cmf_col].isna().all():
+        last_date = data.dropna(subset=[cmf_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = 21  # Start calculation after having 21 periods of data
+        data[cmf_col] = 0  # Initialize the CMF column with 0
+    
+    adl_values = []
+    for i in range(len(data)):
+        adl_value = ((data['close'].iloc[i] - data['low'].iloc[i]) - (data['high'].iloc[i] - data['close'].iloc[i])) / (data['high'].iloc[i] - data['low'].iloc[i]) * data['Volume'].iloc[i]
+        adl_values.append(adl_value)
+    
+    data['ADL'] = adl_values
+    data['MF_Multiplier'] = ((data['close'] - data['low']) - (data['high'] - data['close'])) / (data['high'] - data['low'])
+    data['MF_Volume'] = data['MF_Multiplier'] * data['Volume']
+    
+    cmf_values = list(data[cmf_col][:start_idx])
+    sum_mf_volume = sum(data['MF_Volume'].iloc[:start_idx])
+    sum_volume = sum(data['Volume'].iloc[:start_idx])
+    
+    for i in range(start_idx, len(data)):
+        sum_mf_volume += data['MF_Volume'].iloc[i]
+        sum_volume += data['Volume'].iloc[i]
+        
+        if i >= 21:
+            sum_mf_volume_period = sum(data['MF_Volume'].iloc[i-20:i+1])
+            sum_volume_period = sum(data['Volume'].iloc[i-20:i+1])
+            if sum_volume_period != 0:
+                cmf = sum_mf_volume_period / (sum_volume_period + 1e-8)  # Adding a small epsilon to avoid division by zero
+            else:
+                cmf = 0  # Handle division by zero gracefully
+            cmf_values.append(cmf)
+        else:
+            cmf_values.append(0)
+    
+    data.loc[data.index[start_idx:], cmf_col] = cmf_values[start_idx:]
+    
+    if fig:
+        # Add CMF line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['CMF'], mode='lines', name='CMF'), row=3, col=1)
+
+
 #Heikin Ashi Strategy
 def calculate_heikin_ashi(data):
     """Calculate the Heikin-Ashi candlesticks and update the DataFrame in place."""
@@ -803,6 +1004,43 @@ def calculate_heikin_ashi(data):
     data['Heikin_Ashi_High'] = heikin_ashi_high
     data['Heikin_Ashi_Low'] = heikin_ashi_low
     data['Heikin_Ashi_Close'] = heikin_ashi_close
+
+#INCREMENTAL
+def calculate_heikin_ashi_incremental(data):
+    """Calculate the Heikin-Ashi candlesticks incrementally and update the DataFrame in place."""
+    ha_open_col = 'Heikin_Ashi_Open'
+    ha_high_col = 'Heikin_Ashi_High'
+    ha_low_col = 'Heikin_Ashi_Low'
+    ha_close_col = 'Heikin_Ashi_Close'
+    
+    if ha_close_col in data.columns and not data[ha_close_col].isna().all():
+        last_date = data.dropna(subset=[ha_close_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+        heikin_ashi_open = list(data[ha_open_col].iloc[:start_idx])
+        heikin_ashi_close = list(data[ha_close_col].iloc[:start_idx])
+        heikin_ashi_high = list(data[ha_high_col].iloc[:start_idx])
+        heikin_ashi_low = list(data[ha_low_col].iloc[:start_idx])
+    else:
+        start_idx = 1
+        heikin_ashi_open = [data['Open'].iloc[0]]  # Initialize the first HA open value as the traditional open value
+        heikin_ashi_close = [(data['Open'].iloc[0] + data['high'].iloc[0] + data['low'].iloc[0] + data['close'].iloc[0]) / 4]
+        heikin_ashi_high = [max(data['high'].iloc[0], heikin_ashi_open[0], heikin_ashi_close[0])]
+        heikin_ashi_low = [min(data['low'].iloc[0], heikin_ashi_open[0], heikin_ashi_close[0])]
+    
+    for i in range(start_idx, len(data)):
+        ha_close = (data['Open'].iloc[i] + data['high'].iloc[i] + data['low'].iloc[i] + data['close'].iloc[i]) / 4
+        heikin_ashi_close.append(ha_close)
+        ha_open = (heikin_ashi_open[i-1] + heikin_ashi_close[i-1]) / 2
+        heikin_ashi_open.append(ha_open)
+        ha_high = max(data['high'].iloc[i], ha_open, ha_close)
+        heikin_ashi_high.append(ha_high)
+        ha_low = min(data['low'].iloc[i], ha_open, ha_close)
+        heikin_ashi_low.append(ha_low)
+    
+    data.loc[data.index[start_idx:], ha_open_col] = heikin_ashi_open[start_idx:]
+    data.loc[data.index[start_idx:], ha_high_col] = heikin_ashi_high[start_idx:]
+    data.loc[data.index[start_idx:], ha_low_col] = heikin_ashi_low[start_idx:]
+    data.loc[data.index[start_idx:], ha_close_col] = heikin_ashi_close[start_idx:]
 
 
 
@@ -828,6 +1066,37 @@ def identify_elliott_wave_patterns(df, fig=None):
         fig.add_trace(go.Scatter(x=impulse_wave['Date'], y=impulse_wave['close'], mode='markers+lines', name='Impulse Wave', line=dict(color='blue')), row=3, col=1)
         fig.add_trace(go.Scatter(x=corrective_wave['Date'], y=corrective_wave['close'], mode='markers+lines', name='Corrective Wave', line=dict(color='red')), row=3, col=1)
 
+#INCREMENTAL
+def identify_elliott_wave_patterns_incremental(df, fig=None):
+    """
+    Identify Elliott Wave patterns incrementally and optionally plot them.
+    """
+    wave_col = 'Wave'
+    
+    if wave_col in df.columns and not df[wave_col].isna().all():
+        last_date = df.dropna(subset=[wave_col]).index[-1]
+        start_idx = df.index.get_loc(last_date) + 1
+    else:
+        start_idx = 1
+        df[wave_col] = None  # Initialize with None
+    
+    for i in range(start_idx, len(df)-1):
+        if df['close'].iloc[i] > df['close'].iloc[i-1] and df['close'].iloc[i] > df['close'].iloc[i+1]:
+            df.at[df.index[i], wave_col] = 'Impulse'
+        elif df['close'].iloc[i] < df['close'].iloc[i-1] and df['close'].iloc[i] < df['close'].iloc[i+1]:
+            df.at[df.index[i], wave_col] = 'Corrective'
+    
+    if fig:
+        # Add wave patterns to the third subplot
+        impulse_wave = df[df[wave_col] == 'Impulse']
+        corrective_wave = df[df[wave_col] == 'Corrective']
+        
+        fig.add_trace(go.Scatter(x=impulse_wave['Date'], y=impulse_wave['close'], mode='markers+lines', name='Impulse Wave', line=dict(color='blue')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=corrective_wave['Date'], y=corrective_wave['close'], mode='markers+lines', name='Corrective Wave', line=dict(color='red')), row=3, col=1)
+
+
+
+
 #DONCHIAN CHANNEL STARTEGY
 def calculate_donchian_channels(data, n, fig=None):
     """Calculate the Donchian Channels and optionally plot them."""
@@ -838,6 +1107,35 @@ def calculate_donchian_channels(data, n, fig=None):
         # Add Donchian Channels to the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Channel'], mode='lines', name='Upper Channel'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Channel'], mode='lines', name='Lower Channel'), row=3, col=1)
+
+#INCREMENTAL
+def calculate_donchian_channels_incremental(data, n, fig=None):
+    """Calculate the Donchian Channels incrementally and optionally plot them."""
+    upper_col = 'Upper_Channel'
+    lower_col = 'Lower_Channel'
+    
+    if upper_col in data.columns and not data[upper_col].isna().all():
+        last_date = data.dropna(subset=[upper_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = n
+        data[upper_col] = None  # Initialize with None
+        data[lower_col] = None  # Initialize with None
+    
+    for i in range(start_idx, len(data)):
+        if i >= n - 1:
+            upper_channel = data['high'].iloc[i-n+1:i+1].max()
+            lower_channel = data['low'].iloc[i-n+1:i+1].min()
+            data.at[data.index[i], upper_col] = upper_channel
+            data.at[data.index[i], lower_col] = lower_channel
+    
+    if fig:
+        # Add Donchian Channels to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[upper_col], mode='lines', name='Upper Channel'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[lower_col], mode='lines', name='Lower Channel'), row=3, col=1)
+
+
+
 
 #Flags and Pennants
 def calculate_flag_and_add_trace(data, fig=None):
@@ -985,6 +1283,29 @@ def calculate_gann_angles(data, key_price_points, angles, fig=None):
                 # Add Gann Angle line to the third subplot
                 fig.add_trace(go.Scatter(x=data['Date'], y=gann_line, mode='lines', name=f'Gann {angle}° from {key_price}'), row=3, col=1)
 
+#INCREMENTAL
+def calculate_gann_angles_incremental(data, key_price_points, angles, fig=None):
+    """Calculate and plot Gann Angles incrementally from key price points."""
+    for key_price in key_price_points:
+        for angle in angles:
+            column_name = f'Gann_{angle}_{key_price}'
+            if column_name in data.columns and not data[column_name].isna().all():
+                last_date = data.dropna(subset=[column_name]).index[-1]
+                start_idx = data.index.get_loc(last_date) + 1
+            else:
+                start_idx = 0
+                data[column_name] = None  # Initialize with None
+            
+            slope = np.tan(np.radians(angle))
+            for i in range(start_idx, len(data)):
+                gann_value = key_price + slope * (i - key_price_points.index(key_price))
+                data.at[data.index[i], column_name] = gann_value
+            
+            if fig:
+                gann_line = data[column_name]
+                fig.add_trace(go.Scatter(x=data['Date'], y=gann_line, mode='lines', name=f'Gann {angle}° from {key_price}'), row=3, col=1)
+
+
 
 #MOMENTUM INDICATOR
 def calculate_momentum(data, n, fig=None):
@@ -997,11 +1318,29 @@ def calculate_momentum(data, n, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Momentum'], mode='lines', name='Momentum'), row=3, col=1)
 
 
+#INCREMENTAL
+def calculate_momentum_incremental(data, n, fig=None):
+    """Calculate the Momentum indicator incrementally and optionally plot it."""
+    momentum_col = 'Momentum'
+    
+    if momentum_col in data.columns and not data[momentum_col].isna().all():
+        last_date = data.dropna(subset=[momentum_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = n
+        data[momentum_col] = 0  # Initialize with 0 instead of None
+    
+    for i in range(start_idx, len(data)):
+        if i >= n:
+            momentum_value = data['close'].iloc[i] - data['close'].iloc[i-n]
+            data.at[data.index[i], momentum_col] = momentum_value
+    
+    if fig:
+        # Add Momentum line to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[momentum_col], mode='lines', name='Momentum'), row=3, col=1)
+
 
 #MONEY FLOW INDEX
-import pandas as pd
-import plotly.graph_objs as go
-
 def calculate_mfi(data, n, fig=None):
     """Calculate the Money Flow Index (MFI) and optionally plot it."""
     typical_price = (data['high'] + data['low'] + data['close']) / 3
@@ -1031,6 +1370,43 @@ def calculate_mfi(data, n, fig=None):
         # Add MFI to the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['MFI'], mode='lines', name='MFI'), row=3, col=1)
 
+#INCREMENTAL
+def calculate_mfi_incremental(data, n, fig=None):
+    """Calculate the Money Flow Index (MFI) incrementally and optionally plot it."""
+    typical_price = (data['high'] + data['low'] + data['close']) / 3
+    money_flow = typical_price * data['Volume']
+    mfi_col = 'MFI'
+    
+    if mfi_col in data.columns and not data[mfi_col].isna().all():
+        last_date = data.dropna(subset=[mfi_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = 1
+        data[mfi_col] = 0  # Initialize the MFI column with 0
+    
+    positive_flow = []
+    negative_flow = []
+    
+    for i in range(1, len(data)):
+        if typical_price[i] > typical_price[i-1]:
+            positive_flow.append(money_flow[i])
+            negative_flow.append(0)
+        elif typical_price[i] < typical_price[i-1]:
+            positive_flow.append(0)
+            negative_flow.append(money_flow[i])
+        else:
+            positive_flow.append(0)
+            negative_flow.append(0)
+    
+    positive_mf = pd.Series(positive_flow).rolling(window=n).sum()
+    negative_mf = pd.Series(negative_flow).rolling(window=n).sum()
+    mfi = 100 - (100 / (1 + positive_mf / negative_mf))
+    data.loc[data.index[start_idx:], mfi_col] = mfi[start_idx:]
+    
+    if fig:
+        # Add MFI to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[mfi_col], mode='lines', name='MFI'), row=3, col=1)
+
 
 #TRIX INDICATOR
 def calculate_trix(data, n, fig=None):
@@ -1054,6 +1430,39 @@ def calculate_trix(data, n, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['TRIX'], mode='lines', name='TRIX'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['TRIX_Signal'], mode='lines', name='TRIX Signal'), row=3, col=1)
 
+#INCREMENTAL
+def calculate_trix_incremental(data, n, fig=None):
+    """Calculate the TRIX indicator incrementally and optionally plot it."""
+    trix_col = 'TRIX'
+    signal_col = 'TRIX_Signal'
+    
+    if trix_col in data.columns and not data[trix_col].isna().all():
+        last_date = data.dropna(subset=[trix_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = 1
+        data[trix_col] = 0  # Initialize the TRIX column with 0
+        data[signal_col] = 0  # Initialize the TRIX Signal column with 0
+
+    # Calculate the single smoothed EMA
+    ema1 = data['close'].ewm(span=n, adjust=False).mean()
+    # Calculate the double smoothed EMA
+    ema2 = ema1.ewm(span=n, adjust=False).mean()
+    # Calculate the triple smoothed EMA
+    ema3 = ema2.ewm(span=n, adjust=False).mean()
+    # Calculate the 1-period rate-of-change (ROC) of the triple smoothed EMA
+    trix = ema3.pct_change() * 100
+    data.loc[data.index[start_idx:], trix_col] = trix[start_idx:]
+
+    # Calculate the signal line (9-period EMA of the TRIX)
+    signal_line = trix.ewm(span=9, adjust=False).mean()
+    data.loc[data.index[start_idx:], signal_col] = signal_line[start_idx:]
+
+    if fig:
+        # Add TRIX and signal line to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[trix_col], mode='lines', name='TRIX'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='TRIX Signal'), row=3, col=1)
+
 
 #Price Rate of Change (PROC) Strategy
 def calculate_proc(data, n, fig=None):
@@ -1064,6 +1473,27 @@ def calculate_proc(data, n, fig=None):
     if fig:
         # Add PROC to the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['PROC'], mode='lines', name='PROC'), row=3, col=1)
+
+#INCREMENTAL
+def calculate_proc_incremental(data, n, fig=None):
+    """Calculate the Price Rate of Change (PROC) incrementally and optionally plot it."""
+    proc_col = 'PROC'
+    
+    if proc_col in data.columns and not data[proc_col].isna().all():
+        last_date = data.dropna(subset=[proc_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = n
+        data[proc_col] = 0  # Initialize the PROC column with 0
+    
+    for i in range(start_idx, len(data)):
+        proc = ((data['close'].iloc[i] - data['close'].iloc[i - n]) / data['close'].iloc[i - n]) * 100
+        data.loc[data.index[i], proc_col] = proc
+    
+    if fig:
+        # Add PROC to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[proc_col], mode='lines', name='PROC'), row=3, col=1)
+
 
 #VORTEX INDICATOR STRATREGY
 def calculate_vortex(data, n, fig=None):
@@ -1084,6 +1514,40 @@ def calculate_vortex(data, n, fig=None):
         # Add VI+ and VI- to the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VI+'], mode='lines', name='VI+'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['VI-'], mode='lines', name='VI-'), row=3, col=1)
+
+#INCREMENTAL
+def calculate_vortex_incremental(data, n, fig=None):
+    """Calculate the Vortex Indicator (VI) incrementally and optionally plot it."""
+    vi_plus_col = 'VI+'
+    vi_minus_col = 'VI-'
+    
+    if vi_plus_col in data.columns and not data[vi_plus_col].isna().all():
+        last_date = data.dropna(subset=[vi_plus_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = 1
+        data[vi_plus_col] = 0  # Initialize the VI+ column with 0
+        data[vi_minus_col] = 0  # Initialize the VI- column with 0
+
+    tr = np.maximum(data['high'] - data['low'], 
+                    np.maximum(abs(data['high'] - data['close'].shift(1)), 
+                               abs(data['low'] - data['close'].shift(1))))
+    atr = tr.rolling(window=n).sum()
+
+    vm_plus = abs(data['high'] - data['low'].shift(1))
+    vm_minus = abs(data['low'] - data['high'].shift(1))
+    
+    vi_plus = vm_plus.rolling(window=n).sum() / atr
+    vi_minus = vm_minus.rolling(window=n).sum() / atr
+
+    data.loc[data.index[start_idx:], vi_plus_col] = vi_plus[start_idx:]
+    data.loc[data.index[start_idx:], vi_minus_col] = vi_minus[start_idx:]
+
+    if fig:
+        # Add VI+ and VI- to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[vi_plus_col], mode='lines', name='VI+'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[vi_minus_col], mode='lines', name='VI-'), row=3, col=1)
+
 
 # Rate of Change
 def calculate_roc_and_add_trace(data, window, fig=None):
@@ -1741,6 +2205,38 @@ def calculate_stc(data, short_window, long_window, signal_window, cycle_window, 
         # Add STC to the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['STC'], mode='lines', name='STC'), row=3, col=1)
 
+#INCREMENTAL
+def calculate_stc_incremental(data, short_window, long_window, signal_window, cycle_window, fig=None):
+    """Calculate the Schaff Trend Cycle (STC) incrementally and optionally plot it."""
+    # Use the existing MACD calculation function
+    calculate_macd_and_add_trace(data, short_window, long_window, signal_window, fig)
+    
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    stc_col = 'STC'
+    
+    if stc_col in data.columns and not data[stc_col].isna().all():
+        last_date = data.dropna(subset=[stc_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = cycle_window
+        data[stc_col] = 0  # Initialize the STC column with 0
+    
+    stc_values = []
+    for i in range(start_idx, len(data)):
+        stc_value = data[macd_col].iloc[i] - data[signal_col].iloc[i]
+        stc_values.append(stc_value)
+    
+    stc_series = pd.Series(stc_values).ewm(span=cycle_window, adjust=False).mean()
+    data.loc[data.index[start_idx:], stc_col] = stc_series.values
+    
+    if fig:
+        # Add STC to the chart
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[stc_col], mode='lines', name='STC'), row=3, col=1)
+
+
+
+
 
 #DIVERGENCE ANALYSIS
 def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, signal_window=9, rsi_window=14, fig=None):
@@ -1787,6 +2283,60 @@ def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, si
         
         # Add OBV trace
         fig.add_trace(go.Scatter(x=data['Date'], y=data[obv_col], mode='lines', name='OBV'), row=3, col=1)
+
+#INCREMENTAL
+def calculate_indicators_and_add_trace_incremental(data, short_window=12, long_window=26, signal_window=9, rsi_window=14, fig=None):
+    # Initialize columns if not present
+    macd_col = f'macd_{short_window}_{long_window}'
+    signal_col = f'signal_line_{short_window}_{long_window}'
+    histogram_col = f'macd_histogram_{short_window}_{long_window}'
+    rsi_col = f'rsi_{rsi_window}'
+    obv_col = 'obv'
+
+    if macd_col in data.columns and not data[macd_col].isna().all():
+        last_date = data.dropna(subset=[macd_col]).index[-1]
+        start_idx = data.index.get_loc(last_date) + 1
+    else:
+        start_idx = max(short_window, long_window, signal_window, rsi_window)
+        data[macd_col] = 0
+        data[signal_col] = 0
+        data[histogram_col] = 0
+        data[rsi_col] = 0
+        data[obv_col] = 0
+
+    # Calculate MACD
+    data[f'ema_{short_window}'] = data['close'].ewm(span=short_window, adjust=False).mean()
+    data[f'ema_{long_window}'] = data['close'].ewm(span=long_window, adjust=False).mean()
+    data.loc[data.index[start_idx:], macd_col] = data[f'ema_{short_window}'].iloc[start_idx:] - data[f'ema_{long_window}'].iloc[start_idx:]
+    data.loc[data.index[start_idx:], signal_col] = data[macd_col].iloc[start_idx:].ewm(span=signal_window, adjust=False).mean()
+    data.loc[data.index[start_idx:], histogram_col] = data[macd_col].iloc[start_idx:] - data[signal_col].iloc[start_idx:]
+    
+    # Calculate RSI
+    delta = data['close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=rsi_window, min_periods=1).mean()
+    avg_loss = loss.rolling(window=rsi_window, min_periods=1).mean()
+    rs = avg_gain / avg_loss
+    data.loc[data.index[start_idx:], rsi_col] = 100 - (100 / (1 + rs.iloc[start_idx:]))
+
+    # Calculate OBV
+    obv = (np.sign(data['close'].diff()) * data['Volume']).fillna(0).cumsum()
+    data.loc[data.index[start_idx:], obv_col] = obv.iloc[start_idx:]
+
+    if fig:
+        # Add MACD, Signal Line, and Histogram to the third subplot
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[macd_col], mode='lines', name='MACD'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[signal_col], mode='lines', name='Signal Line'), row=3, col=1)
+        fig.add_trace(go.Bar(x=data['Date'], y=data[histogram_col], name='MACD Histogram'), row=3, col=1)
+        
+        # Add RSI trace
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[rsi_col], mode='lines', name='RSI'), row=3, col=1)
+        
+        # Add OBV trace
+        fig.add_trace(go.Scatter(x=data['Date'], y=data[obv_col], mode='lines', name='OBV'), row=3, col=1)
+
+
 
 
 #Senkou Span

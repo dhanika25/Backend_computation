@@ -1,17 +1,67 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-def addBuySell2Graph(df, fig=None):
+# def addBuySell2Graph(df, fig=None):
+#     """
+#     Function to add buy and sell signals to a plotly figure.
+
+#     Parameters:
+#     - fig: The plotly figure object.
+#     - df: DataFrame containing the stock data with 'Trigger' column.
+
+#     Returns:
+#     - fig: The updated plotly figure object with buy and sell signals added.
+#     """
+#     # Add buy signals
+#     buy_indices = df.index[df['Trigger'] == 'B']
+#     buy_dates = df.loc[buy_indices, 'Date']
+#     buy_prices = df.loc[buy_indices, 'low']  # You can adjust the y-coordinate as needed
+#     fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', marker_symbol='triangle-up', marker=dict(color='green', size=10), name='Buy Signal'))
+
+#     # Add sell signals
+#     sell_indices = df.index[df['Trigger'] == 'S']
+#     sell_dates = df.loc[sell_indices, 'Date']
+#     sell_prices = df.loc[sell_indices, 'high']  # You can adjust the y-coordinate as needed
+#     fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', marker_symbol='triangle-down', marker=dict(color='red', size=10), name='Sell Signal'))
+
+#     # Add lines connecting buy to sell signals
+#     last_buy_index = None
+
+#     for index, row in df.iterrows():
+#         if row['Trigger'] == 'B':
+#             last_buy_index = index
+#         elif row['Trigger'] == 'S' and last_buy_index is not None:
+#             buy_date = df.at[last_buy_index, 'Date']
+#             buy_price = df.at[last_buy_index, 'low']
+#             sell_date = row['Date']
+#             sell_price = row['high']
+#             fig.add_trace(go.Scatter(
+#                 x=[buy_date, sell_date],
+#                 y=[buy_price, sell_price],
+#                 mode='lines',
+#                 line=dict(color='blue', dash='dot'),
+#                 showlegend=False
+#             ))
+#             last_buy_index = None  # Reset last buy index after connecting to a sell
+
+#     return fig
+
+# def addBuySell2Graph_with_stopLoss(df, fig=None, stop_loss_percent=0.05):
+def addBuySell2Graph(df, fig=None, stop_loss_percent=0.05):
     """
-    Function to add buy and sell signals to a plotly figure.
+    Function to add buy and sell signals to a plotly figure along with stop loss lines.
 
     Parameters:
     - fig: The plotly figure object.
     - df: DataFrame containing the stock data with 'Trigger' column.
+    - stop_loss_percent: The stop loss percentage to calculate stop loss price.
 
     Returns:
-    - fig: The updated plotly figure object with buy and sell signals added.
+    - fig: The updated plotly figure object with buy, sell signals, and stop loss lines added.
     """
+    if fig is None:
+        fig = go.Figure()
+
     # Add buy signals
     buy_indices = df.index[df['Trigger'] == 'B']
     buy_dates = df.loc[buy_indices, 'Date']
@@ -24,7 +74,7 @@ def addBuySell2Graph(df, fig=None):
     sell_prices = df.loc[sell_indices, 'high']  # You can adjust the y-coordinate as needed
     fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', marker_symbol='triangle-down', marker=dict(color='red', size=10), name='Sell Signal'))
 
-    # Add lines connecting buy to sell signals
+    # Add lines connecting buy to sell signals and stop loss lines
     last_buy_index = None
 
     for index, row in df.iterrows():
@@ -35,6 +85,8 @@ def addBuySell2Graph(df, fig=None):
             buy_price = df.at[last_buy_index, 'low']
             sell_date = row['Date']
             sell_price = row['high']
+
+            # Add line connecting buy to sell
             fig.add_trace(go.Scatter(
                 x=[buy_date, sell_date],
                 y=[buy_price, sell_price],
@@ -42,6 +94,18 @@ def addBuySell2Graph(df, fig=None):
                 line=dict(color='blue', dash='dot'),
                 showlegend=False
             ))
+
+            # Calculate stop loss price and add stop loss line
+            stop_loss_price = buy_price * (1 - stop_loss_percent)
+            fig.add_trace(go.Scatter(
+                x=[buy_date, sell_date],
+                y=[stop_loss_price, stop_loss_price],
+                mode='lines',
+                line=dict(color='orange', dash='dash'),
+                name='Stop Loss',
+                showlegend=(index == last_buy_index)  # Show legend only once
+            ))
+
             last_buy_index = None  # Reset last buy index after connecting to a sell
 
     return fig

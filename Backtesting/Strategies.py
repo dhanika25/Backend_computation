@@ -1412,7 +1412,9 @@ def implement_vortex_strategy(df, n, stop_loss_percentage, toPlot=False):
     return pnl_res
 # #----------------------------------------------------------RVI Strategy-----------------------------------------------------------
 
-def implement_RVI(data, toPlot=False):
+# Example of adding stop-loss to implement_RVI strategy
+
+def implement_RVI(data, toPlot=False, stop_loss_percentage=0.1):
     ticker = data['ticker'].iloc[0]
     fig = dr.plotGraph(data, ticker) if toPlot else None
 
@@ -1422,6 +1424,7 @@ def implement_RVI(data, toPlot=False):
     sell_signals = [float('nan')]
     triggers = ['H']
     position = None
+    buy_price = 0
 
     for i in range(1, len(data)):
         flag = False
@@ -1432,6 +1435,7 @@ def implement_RVI(data, toPlot=False):
                 sell_signals.append(float('nan'))
                 triggers.append('B')
                 position = 1
+                buy_price = data['close'].iloc[i]
             else:
                 buy_signals.append(float('nan'))
                 sell_signals.append(float('nan'))
@@ -1440,8 +1444,11 @@ def implement_RVI(data, toPlot=False):
         elif data['RVI'].iloc[i] < 0 and data['RVI'].iloc[i - 1] >= 0:
             flag = True
             if position == 1:
-                buy_signals.append(float('nan'))
-                sell_signals.append(data['close'].iloc[i])
+                stop_loss = buy_price * (1 - stop_loss_percentage)
+                if data['close'].iloc[i] <= stop_loss:
+                    sell_signals.append(stop_loss)
+                else:
+                    sell_signals.append(data['close'].iloc[i])
                 triggers.append('S')
                 position = 0
             else:
@@ -1464,6 +1471,7 @@ def implement_RVI(data, toPlot=False):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
 
     return pnl_res
+
 
 # #----------------------------------------------------------Volume Oscillator Strategy-----------------------------------------------------------
 
@@ -1931,51 +1939,51 @@ def implement_kvo(data, toPlot=False):
 # #----------------------------------------------------------Elder Ray Strategy-----------------------------------------------------------
 
 
-def implement_elder_ray(data, toPlot=False):
+def implement_elder_ray(data, toPlot=False, stop_loss_percentage=0.1):
     ticker = data['ticker'].iloc[0]
     fig = dr.plotGraph(data, ticker) if toPlot else None
 
     ndct.calculate_elder_ray(data, fig=fig)
 
-    buy_signals = [float('nan')]
-    sell_signals = [float('nan')]
-    triggers = ['H']
+    # Initialize signals with NaNs
+    buy_signals = [float('nan')] * len(data)
+    sell_signals = [float('nan')] * len(data)
+    triggers = ['H'] * len(data)
     position = None
+    buy_price = 0
 
     for i in range(1, len(data)):
         flag = False
         if data['Bull Power'].iloc[i] > 0 and data['Bull Power'].iloc[i] > data['Bull Power'].iloc[i - 1]:
             flag = True
             if position != 1:
-                buy_signals.append(data['close'].iloc[i])
-                sell_signals.append(float('nan'))
-                triggers.append('B')
+                buy_signals[i] = data['close'].iloc[i]  # Assign signal at index i
+                sell_signals[i] = float('nan')  # Or assign NaN if not a sell signal
+                triggers[i] = 'B'
                 position = 1
-            else:
-                buy_signals.append(float('nan'))
-                sell_signals.append(float('nan'))
-                triggers.append('H')
+                buy_price = data['close'].iloc[i]
+            # Else statements can remain as is
 
         elif data['Bear Power'].iloc[i] < 0 and data['Bear Power'].iloc[i] < data['Bear Power'].iloc[i - 1]:
             flag = True
             if position == 1:
-                buy_signals.append(float('nan'))
-                sell_signals.append(data['close'].iloc[i])
-                triggers.append('S')
+                stop_loss = buy_price * (1 - stop_loss_percentage)
+                if data['close'].iloc[i] <= stop_loss:
+                    sell_signals[i] = stop_loss
+                else:
+                    sell_signals[i] = data['close'].iloc[i]
+                triggers[i] = 'S'
                 position = 0
-            else:
-                buy_signals.append(float('nan'))
-                sell_signals.append(float('nan'))
-                triggers.append('H')
+            # Else statements can remain as is
 
-        if flag == False:
-            buy_signals.append(float('nan'))
-            sell_signals.append(float('nan'))
-            triggers.append('H')
+        # No need for an else statement for flag == False; signals are initialized with NaN
 
+    # Assign signals to DataFrame
     data['buy_signal'] = buy_signals
     data['sell_signal'] = sell_signals
     data['Trigger'] = triggers
+
+    # Perform backtesting
     pnl_res = sb_bt.simpleBacktest(data)
 
     if toPlot:
@@ -1983,6 +1991,8 @@ def implement_elder_ray(data, toPlot=False):
         pnl_res["plotlyJson"] = pio.to_json(fig, pretty=True)
 
     return pnl_res
+
+
 
 
 # #----------------------------------------------------------Swing Index Strategy-----------------------------------------------------------
@@ -2155,7 +2165,7 @@ def implement_zigzag(data, threshold=5, toPlot=False):
     return pnl_res
 
 # #----------------------------------------------------------Average True Range Bands Strategy-----------------------------------------------------------
-def implement_atr_bands(data, window=14, toPlot=False):
+def implement_atr_bands(data, window=14, toPlot=False, stop_loss_percentage=0.1):
     ticker = data['ticker'].iloc[0]
     fig = dr.plotGraph(data, ticker) if toPlot else None
 
@@ -2187,12 +2197,13 @@ def implement_atr_bands(data, window=14, toPlot=False):
         elif data['close'].iloc[i] >= data['upper_band'].iloc[i]:
             flag = True
             if position == 1:
-                buy_signals.append(float('nan'))
-                sell_signals.append(data['close'].iloc[i])
+                stop_loss = buy_price * (1 - stop_loss_percentage)
+                if data['close'].iloc[i] >= stop_loss:
+                    sell_signals.append(data['close'].iloc[i])
+                else:
+                    sell_signals.append(stop_loss)
                 triggers.append('S')
                 position = 0
-                print(data['Date'].iloc[i], "-exit condition executed")
-
             else:
                 buy_signals.append(float('nan'))
                 sell_signals.append(float('nan'))

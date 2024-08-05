@@ -1432,9 +1432,23 @@ def calculate_price_channels_and_add_trace_incremental(data, window, start_date=
 
 
 def calculate_RVI(data, window=10, fig=None):
+    if 'RVI' not in data.columns:
+        data['RVI'] = float('nan')
+
+    last_index = data['RVI'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+
     close_open_diff = data['close'] - data['Open']
     high_low_diff = data['high'] - data['low']
-    data['RVI'] = close_open_diff.rolling(window=window).mean() / high_low_diff.rolling(window=window).mean()
+    
+    close_open_diff_roll = close_open_diff.rolling(window=window).mean()
+    high_low_diff_roll = high_low_diff.rolling(window=window).mean()
+
+    data.loc[start_index:, 'RVI'] = close_open_diff_roll[start_index:] / high_low_diff_roll[start_index:]
+
+    # Fill NaN values to ensure the length matches
+    data['RVI'].fillna(method='ffill', inplace=True)
+    data['RVI'].fillna(0, inplace=True)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['RVI'], mode='lines', name='RVI'), row=3, col=1)
@@ -1444,32 +1458,68 @@ def calculate_RVI(data, window=10, fig=None):
             row=3, col=1
         )
 
+def implement_RVI(data, toPlot=False):
+    calculate_RVI(data)
+    
+    # Example of generating buy/sell signals
+    data['buy_signal'] = (data['RVI'] > 0).astype(int)
+    data['sell_signal'] = (data['RVI'] < 0).astype(int)
+    
+    if toPlot:
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True)
+        calculate_RVI(data, fig)
+        fig.show()
+
+    return data
+
+
 
 #Volume Oscillator
 
 
 def calculate_volume_oscillator(data, short_window=14, long_window=28, fig=None):
-    short_ma = data['Volume'].rolling(window=short_window).mean()
-    long_ma = data['Volume'].rolling(window=long_window).mean()
-    data['Volume_Oscillator'] = (short_ma - long_ma) / long_ma
+    if 'Volume_Oscillator' not in data.columns:
+        data['Volume_Oscillator'] = float('nan')
+
+    last_index = data['Volume_Oscillator'].last_valid_index()
+    start_index = long_window if last_index is None else last_index + 1
+
+    volume_oscillator = data['Volume_Oscillator'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        short_ma = data['Volume'].iloc[i-short_window+1:i+1].mean()
+        long_ma = data['Volume'].iloc[i-long_window+1:i+1].mean()
+        vol_osc = (short_ma - long_ma) / long_ma
+        volume_oscillator.append(vol_osc)
+
+    data['Volume_Oscillator'] = pd.Series(volume_oscillator, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Volume_Oscillator'], mode='lines', name='Volume Oscillator'), row=3, col=1)
-
 
 
 #CMO Strategy
 
 
 def calculate_CMO(data, window=14, fig=None):
-    close_diff = data['close'].diff()
-    upward_changes = close_diff.clip(lower=0)
-    downward_changes = -close_diff.clip(upper=0)
-    
-    sum_upward = upward_changes.rolling(window=window).sum()
-    sum_downward = downward_changes.rolling(window=window).sum()
+    if 'CMO' not in data.columns:
+        data['CMO'] = float('nan')
 
-    data['CMO'] = (sum_upward - sum_downward) / (sum_upward + sum_downward) * 100
+    last_index = data['CMO'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+
+    cmo = data['CMO'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        close_diff = data['close'].iloc[i-window+1:i+1].diff()
+        upward_changes = close_diff.clip(lower=0)
+        downward_changes = -close_diff.clip(upper=0)
+        sum_upward = upward_changes.sum()
+        sum_downward = downward_changes.sum()
+        cmo_value = (sum_upward - sum_downward) / (sum_upward + sum_downward) * 100
+        cmo.append(cmo_value)
+
+    data['CMO'] = pd.Series(cmo, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['CMO'], mode='lines', name='CMO'), row=3, col=1)
@@ -1480,38 +1530,64 @@ def calculate_CMO(data, window=14, fig=None):
         )
 
 
+
 #Aroon Strategy
 
 
 def calculate_aroon(data, window=25, fig=None):
-    data['Aroon Up'] = data['high'].rolling(window).apply(lambda x: (window - x.argmax()) / window * 100, raw=True)
-    data['Aroon Down'] = data['low'].rolling(window).apply(lambda x: (window - x.argmin()) / window * 100, raw=True)
+    if 'Aroon Up' not in data.columns:
+        data['Aroon Up'] = float('nan')
+        data['Aroon Down'] = float('nan')
+
+    last_index = data['Aroon Up'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+
+    aroon_up = data['Aroon Up'].tolist()[:start_index]
+    aroon_down = data['Aroon Down'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        aroon_up_value = (window - data['high'].iloc[i-window+1:i+1].argmax()) / window * 100
+        aroon_down_value = (window - data['low'].iloc[i-window+1:i+1].argmin()) / window * 100
+        aroon_up.append(aroon_up_value)
+        aroon_down.append(aroon_down_value)
+
+    data['Aroon Up'] = pd.Series(aroon_up, index=data.index)
+    data['Aroon Down'] = pd.Series(aroon_down, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Aroon Up'], mode='lines', name='Aroon Up'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Aroon Down'], mode='lines', name='Aroon Down'), row=3, col=1)
 
 
-
 #Ultimate Oscillator
 
-
 def calculate_ultimate_oscillator(data, short_period=7, medium_period=14, long_period=28, fig=None):
+    if 'Ultimate Oscillator' not in data.columns:
+        data['Ultimate Oscillator'] = float('nan')
+
+    last_index = data['Ultimate Oscillator'].last_valid_index()
+    start_index = long_period if last_index is None else last_index + 1
+
     min_low_or_prev_close = data[['low', 'close']].min(axis=1).shift(1)
     true_range = data['high'].combine(min_low_or_prev_close, max) - data['low'].combine(min_low_or_prev_close, min)
     buying_pressure = data['close'] - min_low_or_prev_close
 
-    avg_bp1 = buying_pressure.rolling(window=short_period).sum()
-    avg_tr1 = true_range.rolling(window=short_period).sum()
+    ultimate_oscillator = data['Ultimate Oscillator'].tolist()[:start_index]
 
-    avg_bp2 = buying_pressure.rolling(window=medium_period).sum()
-    avg_tr2 = true_range.rolling(window=medium_period).sum()
+    for i in range(start_index, len(data)):
+        avg_bp1 = buying_pressure.iloc[i-short_period+1:i+1].sum()
+        avg_tr1 = true_range.iloc[i-short_period+1:i+1].sum()
 
-    avg_bp3 = buying_pressure.rolling(window=long_period).sum()
-    avg_tr3 = true_range.rolling(window=long_period).sum()
+        avg_bp2 = buying_pressure.iloc[i-medium_period+1:i+1].sum()
+        avg_tr2 = true_range.iloc[i-medium_period+1:i+1].sum()
 
-    ultimate_oscillator = 100 * ((4 * (avg_bp1 / avg_tr1)) + (2 * (avg_bp2 / avg_tr2)) + (avg_bp3 / avg_tr3)) / (4 + 2 + 1)
-    data['Ultimate Oscillator'] = ultimate_oscillator
+        avg_bp3 = buying_pressure.iloc[i-long_period+1:i+1].sum()
+        avg_tr3 = true_range.iloc[i-long_period+1:i+1].sum()
+
+        uo = 100 * ((4 * (avg_bp1 / avg_tr1)) + (2 * (avg_bp2 / avg_tr2)) + (avg_bp3 / avg_tr3)) / (4 + 2 + 1)
+        ultimate_oscillator.append(uo)
+
+    data['Ultimate Oscillator'] = pd.Series(ultimate_oscillator, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Ultimate Oscillator'], mode='lines', name='Ultimate Oscillator'), row=3, col=1)
@@ -1525,62 +1601,80 @@ def calculate_ultimate_oscillator(data, short_period=7, medium_period=14, long_p
             x0=data['Date'].iloc[0], y0=30, x1=data['Date'].iloc[-1], y1=30,
             row=3, col=1
         )
+
+
 #Chandelier Exit Strategy
-
-
 def calculate_chandelier_exit(data, window=22, multiplier=3, fig=None):
-    high_max = data['high'].rolling(window=window).max()
-    low_min = data['low'].rolling(window=window).min()
-    atr = data['high'].combine(data['low'], lambda x, y: abs(x - y)).rolling(window=window).mean()
+    if 'Chandelier Exit Long' not in data.columns:
+        data['Chandelier Exit Long'] = float('nan')
+        data['Chandelier Exit Short'] = float('nan')
 
-    chandelier_exit_long = high_max - (atr * multiplier)
-    chandelier_exit_short = low_min + (atr * multiplier)
+    last_index = data['Chandelier Exit Long'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
 
-    data['Chandelier Exit Long'] = chandelier_exit_long
-    data['Chandelier Exit Short'] = chandelier_exit_short
+    chandelier_exit_long = data['Chandelier Exit Long'].tolist()[:start_index]
+    chandelier_exit_short = data['Chandelier Exit Short'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        high_max = data['high'].iloc[i-window+1:i+1].max()
+        low_min = data['low'].iloc[i-window+1:i+1].min()
+        atr = data['high'].iloc[i-window+1:i+1].combine(data['low'].iloc[i-window+1:i+1], lambda x, y: abs(x - y)).mean()
+
+        cel = high_max - (atr * multiplier)
+        ces = low_min + (atr * multiplier)
+
+        chandelier_exit_long.append(cel)
+        chandelier_exit_short.append(ces)
+
+    data['Chandelier Exit Long'] = pd.Series(chandelier_exit_long, index=data.index)
+    data['Chandelier Exit Short'] = pd.Series(chandelier_exit_short, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Chandelier Exit Long'], mode='lines', name='Chandelier Exit Long'), row=3, col=1)
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Chandelier Exit Short'], mode='lines', name='Chandelier Exit Short'), row=3, col=1)
 
 
+
+
 #DMI Strategy
 
 
 def calculate_dmi(data, window=14, fig=None):
-    # Ensure data columns are correctly named and types are consistent
-    data['high'] = pd.to_numeric(data['high'])
-    data['low'] = pd.to_numeric(data['low'])
-    data['close'] = pd.to_numeric(data['close'])
+    if '+DI' not in data.columns:
+        data['+DI'] = float('nan')
+        data['-DI'] = float('nan')
+        data['ADX'] = float('nan')
 
-    high = pd.Series(data['high'])
-    low = pd.Series(data['low'])
-    close = pd.Series(data['close'])
+    last_index = data['+DI'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
 
-    # Calculate True Range (TR)
-    tr = np.maximum(np.maximum(high - low, abs(high - close.shift(1))), abs(low - close.shift(1)))
+    di_plus_list = data['+DI'].tolist()[:start_index]
+    di_minus_list = data['-DI'].tolist()[:start_index]
+    adx_list = data['ADX'].tolist()[:start_index]
 
-    # Calculate Directional Movement (DM)
-    dm_plus = np.where((high - high.shift(1)) > (low.shift(1) - low), np.maximum(high - high.shift(1), 0), 0)
-    dm_minus = np.where((low.shift(1) - low) > (high - high.shift(1)), np.maximum(low.shift(1) - low, 0), 0)
+    for i in range(start_index, len(data)):
+        high = data['high'].iloc[i-window+1:i+1]
+        low = data['low'].iloc[i-window+1:i+1]
+        close = data['close'].iloc[i-window+1:i+1]
 
-    # Convert to pandas Series
-    dm_plus = pd.Series(dm_plus)
-    dm_minus = pd.Series(dm_minus)
-    tr = pd.Series(tr)
+        tr = np.maximum(np.maximum(high - low, abs(high - close.shift(1))), abs(low - close.shift(1)))
+        dm_plus = np.where((high - high.shift(1)) > (low.shift(1) - low), np.maximum(high - high.shift(1), 0), 0)
+        dm_minus = np.where((low.shift(1) - low) > (high - high.shift(1)), np.maximum(low.shift(1) - low, 0), 0)
 
-    # Smoothed versions of TR, DM+, and DM-
-    atr = tr.rolling(window=window).mean()
-    di_plus = (dm_plus.rolling(window=window).mean() / atr) * 100
-    di_minus = (dm_minus.rolling(window=window).mean() / atr) * 100
+        atr = tr.rolling(window=window).mean()
+        di_plus = (pd.Series(dm_plus).rolling(window=window).mean() / atr) * 100
+        di_minus = (pd.Series(dm_minus).rolling(window=window).mean() / atr) * 100
 
-    # Calculate Average Directional Index (ADX)
-    dx = 100 * np.abs((di_plus - di_minus) / (di_plus + di_minus))
-    adx = dx.rolling(window=window).mean()
+        dx = 100 * np.abs((di_plus - di_minus) / (di_plus + di_minus))
+        adx = dx.rolling(window=window).mean().iloc[-1]
 
-    data['+DI'] = di_plus
-    data['-DI'] = di_minus
-    data['ADX'] = adx
+        di_plus_list.append(di_plus.iloc[-1])
+        di_minus_list.append(di_minus.iloc[-1])
+        adx_list.append(adx)
+
+    data['+DI'] = pd.Series(di_plus_list, index=data.index)
+    data['-DI'] = pd.Series(di_minus_list, index=data.index)
+    data['ADX'] = pd.Series(adx_list, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['+DI'], mode='lines', name='+DI'), row=3, col=1)
@@ -1589,6 +1683,7 @@ def calculate_dmi(data, window=14, fig=None):
 
         fig.update_xaxes(title_text="Date", row=3, col=1)
         fig.update_yaxes(title_text="DMI", row=10, col=1)
+
 
         fig.add_annotation(
         dict(
@@ -1613,53 +1708,69 @@ def calculate_dmi(data, window=14, fig=None):
 
 
 def calculate_ADL(data, fig=None):
-    # Ensure data columns are correctly named and types are consistent
-    data['high'] = pd.to_numeric(data['high'])
-    data['low'] = pd.to_numeric(data['low'])
-    data['close'] = pd.to_numeric(data['close'])
-    data['Volume'] = pd.to_numeric(data['Volume'])
+    if 'ADL' not in data.columns:
+        data['ADL'] = float('nan')
 
-    high = pd.Series(data['high'])
-    low = pd.Series(data['low'])
-    close = pd.Series(data['close'])
+    last_index = data['ADL'].last_valid_index()
+    start_index = 0 if last_index is None else last_index + 1
 
-    # Calculate Money Flow Multiplier (MF Multiplier) and Money Flow Volume (MFV)
+    high = pd.to_numeric(data['high'])
+    low = pd.to_numeric(data['low'])
+    close = pd.to_numeric(data['close'])
+    volume = pd.to_numeric(data['Volume'])
+
     mf_mult = ((close - low) - (high - close)) / (high - low)
-    mf_vol = mf_mult * data['Volume']
+    mf_vol = mf_mult * volume
 
-    # Accumulate the Money Flow Volume to get ADL
-    data['ADL'] = mf_vol.cumsum()
+    adl_list = data['ADL'].tolist()[:start_index]
+    
+    if start_index == 0:
+        adl_list = mf_vol.cumsum().tolist()
+    else:
+        for i in range(start_index, len(data)):
+            adl_list.append(adl_list[-1] + mf_vol.iloc[i])
+
+    data['ADL'] = pd.Series(adl_list, index=data.index)
 
     if fig:
-        # Plot ADL on the chart
         fig.add_trace(go.Scatter(x=data['Date'], y=data['ADL'], mode='lines', name='ADL'), row=3, col=1)
 
 #klinger volume oscillator
 
 
 def calculate_kvo(data, fast_period=34, slow_period=55, signal_period=13, fig=None):
+    if 'KVO' not in data.columns:
+        data['KVO'] = float('nan')
+        data['KVO Signal'] = float('nan')
+
+    last_index = data['KVO'].last_valid_index()
+    start_index = max(fast_period, slow_period) if last_index is None else last_index + 1
+
     close = pd.to_numeric(data['close'])
     volume = pd.to_numeric(data['Volume'])
 
-    # Calculate True Range (TR)
-    tr = np.abs(close - close.shift(1))
-
-    # Calculate Money Flow Volume (MFV)
     mfv = close - (close.shift(1) + close.shift(-1)) / 2
     mfv *= volume
 
-    # Calculate Fast and Slow EMAs of MFV
     fast_emav = mfv.ewm(span=fast_period, min_periods=fast_period).mean()
     slow_emav = mfv.ewm(span=slow_period, min_periods=slow_period).mean()
 
-    # Calculate Klinger Volume Oscillator (KVO)
-    kvo = fast_emav - slow_emav
+    kvo_list = data['KVO'].tolist()[:start_index]
+    signal_list = data['KVO Signal'].tolist()[:start_index]
 
-    # Calculate Signal Line
-    signal_line = kvo.ewm(span=signal_period, min_periods=signal_period).mean()
+    if start_index == max(fast_period, slow_period):
+        kvo_list = (fast_emav - slow_emav).tolist()
+        signal_list = pd.Series(kvo_list).ewm(span=signal_period, min_periods=signal_period).mean().tolist()
+    else:
+        for i in range(start_index, len(data)):
+            kvo = fast_emav.iloc[i] - slow_emav.iloc[i]
+            kvo_list.append(kvo)
 
-    data['KVO'] = kvo
-    data['KVO Signal'] = signal_line
+            signal = pd.Series(kvo_list[-signal_period:]).ewm(span=signal_period, min_periods=signal_period).mean().iloc[-1]
+            signal_list.append(signal)
+
+    data['KVO'] = pd.Series(kvo_list, index=data.index)
+    data['KVO Signal'] = pd.Series(signal_list, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['KVO'], mode='lines', name='KVO'), row=3, col=1)
@@ -1667,29 +1778,35 @@ def calculate_kvo(data, fast_period=34, slow_period=55, signal_period=13, fig=No
 
 # Elder Ray
 
-
-
-
 def calculate_elder_ray(data, window=13, fig=None):
     # Ensure data columns are correctly named and types are consistent
     data['high'] = pd.to_numeric(data['high'])
     data['low'] = pd.to_numeric(data['low'])
     data['close'] = pd.to_numeric(data['close'])
 
+    if 'Bull Power' not in data.columns:
+        data['Bull Power'] = float('nan')
+        data['Bear Power'] = float('nan')
+
+    last_index = data['Bull Power'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+    
     high = pd.Series(data['high'])
     low = pd.Series(data['low'])
     close = pd.Series(data['close'])
 
-    # Calculate Exponential Moving Average (EMA)
     ema = close.ewm(span=window, min_periods=window).mean()
 
-    # Calculate Bull Power and Bear Power
-    bull_power = high - ema
-    bear_power = low - ema
+    # Initialize bull_power and bear_power with existing values if present
+    bull_power = data['Bull Power'].tolist()[:start_index]
+    bear_power = data['Bear Power'].tolist()[:start_index]
 
-    # Add Bull Power and Bear Power to the DataFrame
-    data['Bull Power'] = bull_power
-    data['Bear Power'] = bear_power
+    for i in range(start_index, len(data)):
+        bull_power.append(high[i] - ema[i])
+        bear_power.append(low[i] - ema[i])
+
+    data['Bull Power'] = pd.Series(bull_power, index=data.index)
+    data['Bear Power'] = pd.Series(bear_power, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['Bull Power'], mode='lines', name='Bull Power'), row=3, col=1)
@@ -1697,17 +1814,23 @@ def calculate_elder_ray(data, window=13, fig=None):
 
 
 
+
 #Swing Index
 
 
 def calculate_swing_index(data, limit_move=0.05, fig=None):
-    data['SwingIndex'] = 0
-    for i in range(1, len(data)):
+    if 'SwingIndex' not in data.columns:
+        data['SwingIndex'] = float('nan')
+    
+    last_index = data['SwingIndex'].last_valid_index()
+    start_index = 1 if last_index is None else last_index + 1
+
+    for i in range(start_index, len(data)):
         K = max(data['high'][i] - data['close'][i-1], data['low'][i] - data['close'][i-1])
         R = data['high'][i] - data['low'][i]
         C = data['close'][i] - data['close'][i-1]
         O = data['Open'][i] - data['close'][i-1]
-        
+
         if K != 0:
             SI = (C + 0.5 * R + 0.25 * (data['close'][i-1] - data['Open'][i])) / K
         else:
@@ -1720,6 +1843,7 @@ def calculate_swing_index(data, limit_move=0.05, fig=None):
 
 
 #Schaff Trend Cycle Strategy
+
 def calculate_stc(data, short_window, long_window, signal_window, cycle_window, fig=None):
     """Calculate the Schaff Trend Cycle (STC) and optionally plot it."""
     # Use the existing MACD calculation function
@@ -1791,6 +1915,18 @@ def calculate_indicators_and_add_trace(data, short_window=12, long_window=26, si
 
 #Senkou Span
 def calculate_ichimoku(data, fig=None):
+    if 'tenkan_sen' not in data.columns:
+        data['tenkan_sen'] = float('nan')
+    if 'kijun_sen' not in data.columns:
+        data['kijun_sen'] = float('nan')
+    if 'senkou_span_a' not in data.columns:
+        data['senkou_span_a'] = float('nan')
+    if 'senkou_span_b' not in data.columns:
+        data['senkou_span_b'] = float('nan')
+
+    last_index = data['tenkan_sen'].last_valid_index()
+    start_index = 52 if last_index is None else last_index + 1
+
     high_9 = data['high'].rolling(window=9).max()
     low_9 = data['low'].rolling(window=9).min()
     high_26 = data['high'].rolling(window=26).max()
@@ -1812,36 +1948,48 @@ def calculate_ichimoku(data, fig=None):
 #ZgZag Indicator
 
 def calculate_zigzag(data, threshold=5, fig=None):
-    data['zigzag'] = np.nan
-    last_extreme = data['close'].iloc[0]
-    direction = None  # None means no direction, 'up' means looking for local max, 'down' means looking for local min
+    if 'zigzag' not in data.columns:
+        data['zigzag'] = float('nan')
 
-    for i in range(1, len(data)):
+    last_index = data['zigzag'].last_valid_index()
+    start_index = 1 if last_index is None else last_index + 1
+
+    zigzag = data['zigzag'].tolist()[:start_index]
+    last_extreme = data['close'].iloc[start_index-1] if start_index > 1 else data['close'].iloc[0]
+    direction = None if start_index == 1 else ('up' if zigzag[-1] > last_extreme else 'down')
+
+    for i in range(start_index, len(data)):
         price_change = (data['close'].iloc[i] - last_extreme) / last_extreme * 100
 
         if direction is None:
             if abs(price_change) > threshold:
                 direction = 'up' if price_change > 0 else 'down'
                 last_extreme = data['close'].iloc[i]
-                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+                zigzag.append(data['close'].iloc[i])
+            else:
+                zigzag.append(float('nan'))
 
         elif direction == 'up':
             if price_change < -threshold:
                 direction = 'down'
                 last_extreme = data['close'].iloc[i]
-                data.loc[i, 'zigzag'] = data['close'].iloc[i]
-            elif data['close'].iloc[i] > last_extreme:
-                last_extreme = data['close'].iloc[i]
-                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+                zigzag.append(data['close'].iloc[i])
+            else:
+                if data['close'].iloc[i] > last_extreme:
+                    last_extreme = data['close'].iloc[i]
+                zigzag.append(last_extreme)
 
         elif direction == 'down':
             if price_change > threshold:
                 direction = 'up'
                 last_extreme = data['close'].iloc[i]
-                data.loc[i, 'zigzag'] = data['close'].iloc[i]
-            elif data['close'].iloc[i] < last_extreme:
-                last_extreme = data['close'].iloc[i]
-                data.loc[i, 'zigzag'] = data['close'].iloc[i]
+                zigzag.append(data['close'].iloc[i])
+            else:
+                if data['close'].iloc[i] < last_extreme:
+                    last_extreme = data['close'].iloc[i]
+                zigzag.append(last_extreme)
+
+    data['zigzag'] = pd.Series(zigzag, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['zigzag'], mode='lines+markers', name='Zig Zag'), row=3, col=1)
@@ -1850,14 +1998,26 @@ def calculate_zigzag(data, threshold=5, fig=None):
 
 #ATR Strategy
 def calculate_atr(data, window=14, fig=None):
-    data['tr'] = np.maximum(data['high'] - data['low'], np.maximum(abs(data['high'] - data['close'].shift()), abs(data['low'] - data['close'].shift())))
-    data['atr'] = data['tr'].rolling(window=window, min_periods=1).mean()
+    if 'tr' not in data.columns:
+        data['tr'] = float('nan')
+        data['atr'] = float('nan')
 
-    data['upper_band'] = data['close'] + data['atr']
-    data['lower_band'] = data['close'] - data['atr']
-def calculate_atr(data, window=14, fig=None):
-    data['tr'] = np.maximum(data['high'] - data['low'], np.maximum(abs(data['high'] - data['close'].shift()), abs(data['low'] - data['close'].shift())))
-    data['atr'] = data['tr'].rolling(window=window, min_periods=1).mean()
+    last_index = data['atr'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+
+    tr = data['tr'].tolist()[:start_index]
+    atr = data['atr'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        tr_value = max(data['high'].iloc[i] - data['low'].iloc[i],
+                       abs(data['high'].iloc[i] - data['close'].iloc[i-1]),
+                       abs(data['low'].iloc[i] - data['close'].iloc[i-1]))
+        tr.append(tr_value)
+        atr_value = pd.Series(tr[-window:]).mean()
+        atr.append(atr_value)
+
+    data['tr'] = pd.Series(tr, index=data.index)
+    data['atr'] = pd.Series(atr, index=data.index)
 
     data['upper_band'] = data['close'] + data['atr']
     data['lower_band'] = data['close'] - data['atr']
@@ -1867,13 +2027,30 @@ def calculate_atr(data, window=14, fig=None):
         fig.add_trace(go.Scatter(x=data['Date'], y=data['lower_band'], mode='lines', name='Lower Band'), row=3, col=1)
 
 
-
 #Envelope Band
 
 def calculate_envelope_channel(data, window=20, offset=0.02, fig=None):
-    data['ma'] = data['close'].rolling(window=window).mean()
-    data['upper_band'] = data['ma'] * (1 + offset)
-    data['lower_band'] = data['ma'] * (1 - offset)
+    if 'ma' not in data.columns:
+        data['ma'] = float('nan')
+        data['upper_band'] = float('nan')
+        data['lower_band'] = float('nan')
+
+    last_index = data['ma'].last_valid_index()
+    start_index = window if last_index is None else last_index + 1
+
+    ma = data['ma'].tolist()[:start_index]
+    upper_band = data['upper_band'].tolist()[:start_index]
+    lower_band = data['lower_band'].tolist()[:start_index]
+
+    for i in range(start_index, len(data)):
+        ma_value = data['close'].iloc[i-window+1:i+1].mean()
+        ma.append(ma_value)
+        upper_band.append(ma_value * (1 + offset))
+        lower_band.append(ma_value * (1 - offset))
+
+    data['ma'] = pd.Series(ma, index=data.index)
+    data['upper_band'] = pd.Series(upper_band, index=data.index)
+    data['lower_band'] = pd.Series(lower_band, index=data.index)
 
     if fig:
         fig.add_trace(go.Scatter(x=data['Date'], y=data['ma'], mode='lines', name='Moving Average'), row=3, col=1)
